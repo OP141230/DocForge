@@ -139,10 +139,10 @@ async def create_message(
         latest_sequence = await msg_repo.get_latest_sequence(conversation_id)
         next_sequence = latest_sequence + 1
         
-        # Create message with role 'user'
+        # Create message with provided role
         message = await msg_repo.create(
             conversation_id=conversation_id,
-            role="user",
+            role=request.role,
             content=request.content,
             sequence_number=next_sequence
         )

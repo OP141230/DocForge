@@ -89,7 +89,7 @@ def main():
     # User message
     response = session.post(
         f"{BASE_URL}/api/conversations/{conversation_id}/messages",
-        json={"content": "Hello, I need help with documentation"}
+        json={"role": "user", "content": "Hello, I need help with documentation"}
     )
     print_response("Create Message 1 (User)", response)
     
@@ -98,12 +98,22 @@ def main():
     else:
         print(f"✅ Message created with sequence: {response.json()['sequence_number']}")
     
+    # Assistant message
+    response = session.post(
+        f"{BASE_URL}/api/conversations/{conversation_id}/messages",
+        json={"role": "assistant", "content": "I'd be happy to help! What kind of documentation do you need?"}
+    )
+    print_response("Create Message 2 (Assistant)", response)
+    
+    if response.status_code == 201:
+        print(f"✅ Message created with sequence: {response.json()['sequence_number']}")
+    
     # Another user message
     response = session.post(
         f"{BASE_URL}/api/conversations/{conversation_id}/messages",
-        json={"content": "Can you help me generate a technical specification?"}
+        json={"role": "user", "content": "Can you help me generate a technical specification?"}
     )
-    print_response("Create Message 2 (User)", response)
+    print_response("Create Message 3 (User)", response)
     
     if response.status_code == 201:
         print(f"✅ Message created with sequence: {response.json()['sequence_number']}")
