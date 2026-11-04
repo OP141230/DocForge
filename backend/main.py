@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
 from app.core.database import get_database, close_database
-from app.api.routes import health, generate, documents
+from app.api.routes import health, generate, documents, auth, conversations
 
 
 @asynccontextmanager
@@ -26,19 +26,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware - allow credentials for cookies
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_credentials=True,  # Important for cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Include routers
 app.include_router(health.router, tags=["health"])
+app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(generate.router, prefix="/api", tags=["generation"])
 app.include_router(documents.router, prefix="/api", tags=["documents"])
+app.include_router(conversations.router, prefix="/api", tags=["conversations"])
 
 
 @app.get("/")

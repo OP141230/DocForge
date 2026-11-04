@@ -5,6 +5,8 @@ from httpx import AsyncClient
 
 from app.core.database import Database
 from app.repositories.document_repository import DocumentRepository
+from app.repositories.conversation_repository import ConversationRepository
+from app.repositories.message_repository import MessageRepository
 
 
 @pytest.fixture(scope="session")
@@ -28,6 +30,18 @@ async def test_db():
 async def document_repo(test_db):
     """Create a document repository with test database."""
     return DocumentRepository(test_db)
+
+
+@pytest.fixture
+async def conversation_repo(test_db):
+    """Create a conversation repository with test database."""
+    return ConversationRepository(test_db)
+
+
+@pytest.fixture
+async def message_repo(test_db):
+    """Create a message repository with test database."""
+    return MessageRepository(test_db)
 
 
 @pytest.fixture
