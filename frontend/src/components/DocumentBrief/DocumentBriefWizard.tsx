@@ -4,6 +4,7 @@ import { ProgressIndicator } from './ProgressIndicator';
 import { Step1_DocumentType } from './Step1_DocumentType';
 import { Step2_BasicInfo } from './Step2_BasicInfo';
 import { Step3_Preferences } from './Step3_Preferences';
+import { Step4_DocumentSpecific, validateStep4 } from './Step4_DocumentSpecific';
 import { api } from '../../api/client';
 import type { DocumentBrief, CreateBriefRequest, UpdateBriefRequest } from '../../types/document_brief';
 
@@ -192,9 +193,10 @@ export function DocumentBriefWizard({
       case 3:
         return !!(formData.desired_length && formData.tone);
       case 4:
+        return validateStep4(formData.document_type, formData.document_specific_data);
       case 5:
       case 6:
-        // Steps 4-6 not implemented yet, allow proceeding
+        // Steps 5-6 not implemented yet, allow proceeding
         return true;
       default:
         return false;
@@ -307,9 +309,11 @@ export function DocumentBriefWizard({
           )}
 
           {currentStep === 4 && (
-            <div className="text-center py-12 text-gray-500">
-              Step 4: Details - Coming in next sprint
-            </div>
+            <Step4_DocumentSpecific
+              documentType={formData.document_type}
+              documentSpecificData={formData.document_specific_data}
+              onChange={updateField}
+            />
           )}
 
           {currentStep === 5 && (
