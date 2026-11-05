@@ -24,6 +24,16 @@ DocForge is an all-round documentation agent that helps you plan, generate, rese
 - 📱 **Responsive Design**: Works perfectly on desktop, tablet, and mobile
 - 🔗 **Document-Conversation Links**: Associate documents with conversations for context
 
+### Phase 3 (Complete ✅)
+- 📋 **DocumentBrief System**: Structured document planning with guided wizard
+- 🎯 **10 Document Types**: Technical guides, user manuals, API docs, proposals, reports, tutorials, whitepapers, case studies, policies, and standard documents
+- 🧙 **6-Step Wizard**: Type selection, basic info, preferences, type-specific fields, outline generation, and review
+- 📝 **AI-Powered Outlines**: Generate intelligent outlines based on your brief requirements
+- ✏️ **Outline Editing**: Review, edit, add, and delete sections before approval
+- ✅ **Approval Workflow**: Approve outlines before generating full documents
+- 🗂️ **Brief Manager**: View, resume, and manage all your document briefs
+- 🔗 **Brief-Document Linking**: Full traceability from planning to generated content
+
 ## Tech Stack
 
 **Frontend**:
@@ -99,7 +109,15 @@ cd backend
 python migrate_db.py
 ```
 
-### 6. Run the Application
+### 6. Run Phase 3 Migration (DocumentBrief System)
+
+```powershell
+cd backend
+.venv\Scripts\Activate.ps1
+python migrate_phase3.py
+```
+
+### 7. Run the Application
 
 **Using Startup Script (Easiest with Groq):**
 ```powershell
@@ -285,9 +303,10 @@ See `.kiro/steering/docforge-engineering-guide.md` for development guidelines an
 
 ## Phase Roadmap
 
-- **Phase 1** (Current): Core platform and generation ✅
-- **Phase 2** (Planned): RAG, web research, advanced verification
-- **Phase 3** (Planned): Collaboration, plugins, advanced features
+- **Phase 1**: Core platform and generation ✅
+- **Phase 2**: Authentication and personal workspace ✅
+- **Phase 3**: DocumentBrief planning system ✅
+- **Phase 4** (Planned): Templates, analytics, advanced collaboration
 
 ---
 
@@ -344,6 +363,7 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 ## Documentation
 
 - **PHASE2_COMPLETE.md** - Complete Phase 2 documentation
+- **PHASE3_COMPLETE.md** - Complete Phase 3 documentation (DocumentBrief system)
 - **TESTING_GUIDE.md** - Manual testing instructions
 - **PHASE2C_COMPLETE.md** - Data isolation documentation
 
@@ -363,6 +383,18 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - `DELETE /api/conversations/{id}` - Delete conversation
 - `POST /api/conversations/{id}/messages` - Add message
 - `GET /api/conversations/{id}/messages` - List messages
+
+### Document Briefs (Protected)
+- `POST /api/document-briefs` - Create document brief
+- `GET /api/document-briefs` - List briefs (paginated)
+- `GET /api/document-briefs/{id}` - Get brief by ID
+- `PATCH /api/document-briefs/{id}` - Update brief
+- `DELETE /api/document-briefs/{id}` - Delete brief
+- `POST /api/document-briefs/{id}/generate-outline` - Generate outline
+- `PATCH /api/document-briefs/{id}/outline` - Update outline
+- `POST /api/document-briefs/{id}/approve-outline` - Approve outline
+- `POST /api/document-briefs/{id}/generate-document` - Generate document from brief
+- `PATCH /api/document-briefs/{id}/conversation` - Link brief to conversation
 
 ### Documents (Protected)
 - `POST /api/documents` - Create document
@@ -385,6 +417,7 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - **messages** - Messages within conversations (user + assistant)
 - **documents** - Generated documents with user and conversation associations
 - **document_versions** - Version history for documents
+- **document_briefs** (Phase 3) - Document planning briefs with outlines and approval workflow
 
 ## Security Features
 
@@ -400,7 +433,8 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 
 - ✅ **Phase 1**: Document generation and export (Complete)
 - ✅ **Phase 2**: Authentication and personal workspace (Complete)
-- 🔜 **Phase 3**: Advanced features (planned)
+- ✅ **Phase 3**: DocumentBrief planning system (Complete)
+- 🔜 **Phase 4**: Advanced features (planned)
 
 ## Contributing
 
