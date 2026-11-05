@@ -158,17 +158,19 @@ export interface GeneralDocData {
   special_formatting_notes?: string;
 }
 
-// Document type mapping
+// Document type mapping - maps Step1 document type values to field component types
+// Keys match the document type values from Step1_DocumentType.tsx and backend DocumentType enum
 export const DOCUMENT_TYPE_FIELDS: Record<string, string> = {
-  TECHNICAL_DOC: 'technical',
-  ACADEMIC_PAPER: 'academic',
-  ESSAY_ARTICLE: 'essay',
-  PROJECT_REPORT: 'project',
-  BUSINESS_DOC: 'business',
-  RESUME_CV: 'resume',
-  RESEARCH_PAPER: 'research',
-  USER_GUIDE: 'user_guide',
-  GENERAL: 'general',
+  'technical_documentation': 'technical',
+  'academic_document': 'academic',
+  'essay': 'essay',
+  'article': 'essay', // Articles share fields with essays
+  'project_report': 'project',
+  'business_document': 'business',
+  'resume': 'resume',
+  'research_paper': 'research',
+  'user_guide': 'user_guide',
+  'general': 'general',
 };
 
 // Default values by document type
@@ -316,5 +318,5 @@ export function getDefaultValue(documentType: string): any {
 }
 
 export function hasDocumentSpecificFields(documentType: string): boolean {
-  return documentType !== 'GENERAL';
+  return documentType !== 'general';
 }
