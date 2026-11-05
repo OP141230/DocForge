@@ -57,9 +57,10 @@ Thumbs.db
 .agents/
 .kiro/
 
-# Documentation (keep local only - except latest phase)
+# Documentation (keep local only)
 PHASE1_COMPLETE.md
 PHASE2_COMPLETE.md
+PHASE3_COMPLETE.md
 AUDIT_REPORT.md
 SPRINT*.md
 *_VERIFICATION.md
