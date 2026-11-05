@@ -116,25 +116,29 @@ export default function DocumentConfigModal({
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-gray-200">
             <h2 id="config-modal-title" className="text-2xl font-semibold text-gray-900">
-              Configure Document
+              Quick Document Generation
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              Customize your document settings to get the best results
+              Quickly generate a document with basic settings
             </p>
             {onCreateFromBrief && (
               <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-gray-700 mb-2">
-                  Want more control over your document?
+                <p className="text-sm font-semibold text-gray-700 mb-2">
+                  Need more control and structure?
                 </p>
                 <button
                   type="button"
-                  onClick={onCreateFromBrief}
-                  className="text-sm font-medium text-blue-700 hover:text-blue-800 underline"
+                  onClick={() => {
+                    onCreateFromBrief();
+                    onCancel();
+                  }}
+                  className="w-full btn-primary text-sm py-2 mb-2"
                 >
-                  Create from Brief instead →
+                  📋 Create from Document Brief
                 </button>
-                <p className="text-xs text-gray-500 mt-1">
-                  Use the structured wizard to plan your document step-by-step
+                <p className="text-xs text-gray-500">
+                  Use a 6-step wizard to plan your document with detailed requirements, 
+                  generate and approve an outline, then create the final document
                 </p>
               </div>
             )}

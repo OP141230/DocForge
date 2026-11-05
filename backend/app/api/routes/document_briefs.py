@@ -299,6 +299,11 @@ async def generate_document(
         outline_response = OutlineResponse(outline=brief.outline)
         document = await provider.generate_content(outline_response, requirements)
         
+        # Inject brief_id into document metadata for bidirectional linking
+        if not document.metadata.custom_fields:
+            document.metadata.custom_fields = {}
+        document.metadata.custom_fields['brief_id'] = brief_id
+        
         # Save document
         created_doc = await doc_repo.create(
             document,
