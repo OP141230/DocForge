@@ -6,6 +6,7 @@ import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import DocumentPage from './pages/DocumentPage'
 import ConversationPage from './pages/ConversationPage'
+import DocumentBriefManager from './components/DocumentBriefManager'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/document/:id" element={<DocumentPage />} />
             <Route path="/conversation/:id" element={<ConversationPage />} />
+            <Route path="/briefs" element={<DocumentBriefManager />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/" replace />} />

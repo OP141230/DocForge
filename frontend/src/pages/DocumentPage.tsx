@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { DocumentIR, DocumentRequirements } from '../types/document'
 import DocumentConfigModal from '../components/DocumentConfigModal'
+import { DocumentBriefWizard } from '../components/DocumentBrief/DocumentBriefWizard'
+import type { DocumentBrief } from '../types/document_brief'
 
 export default function DocumentPage() {
   const { id } = useParams()
@@ -12,6 +14,8 @@ export default function DocumentPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showConfigModal, setShowConfigModal] = useState(false)
+  const [showBriefWizard, setShowBriefWizard] = useState(false)
+  const [sourceBrief, setSourceBrief] = useState<DocumentBrief | null>(null)
 
   useEffect(() => {
     if (id && id !== 'new') {
@@ -26,6 +30,16 @@ export default function DocumentPage() {
     try {
       const doc = await api.getDocument(docId)
       setDocument(doc)
+      
+      // Check if document was created from a brief
+      if (doc.metadata.custom_fields?.brief_id) {
+        try {
+          const brief = await api.getBrief(doc.metadata.custom_fields.brief_id)
+          setSourceBrief(brief)
+        } catch (err) {
+          console.error('Failed to load source brief:', err)
+        }
+      }
     } catch (error) {
       console.error('Failed to load document:', error)
       setError('Failed to load document')
@@ -62,6 +76,21 @@ export default function DocumentPage() {
     setShowConfigModal(true)
   }
 
+  const handleCreateFromBrief = () => {
+    setShowConfigModal(false)
+    setShowBriefWizard(true)
+  }
+
+  const handleBriefComplete = (brief: DocumentBrief) => {
+    setShowBriefWizard(false)
+    
+    // If the brief generated a document, navigate to it
+    if (brief.document_id) {
+      navigate(`/document/${brief.document_id}`, { replace: true })
+      // The document will reload automatically via useEffect
+    }
+  }
+
   const handleExport = async (format: string) => {
     if (!document) return
     try {
@@ -81,36 +110,48 @@ export default function DocumentPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-900">
-              ← Back
-            </button>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {document?.title || 'New Document'}
-            </h1>
-          </div>
-          {document && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="relative">
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) handleExport(e.target.value)
-                    e.target.value = ''
-                  }}
-                  className="btn-secondary"
-                  defaultValue=""
-                >
-                  <option value="" disabled>Export</option>
-                  <option value="docx">Word (DOCX)</option>
-                  <option value="pdf">PDF</option>
-                  <option value="markdown">Markdown</option>
-                  <option value="html">HTML</option>
-                  <option value="text">Plain Text</option>
-                </select>
+              <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-900">
+                ← Back
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {document?.title || 'New Document'}
+                </h1>
+                {sourceBrief && (
+                  <button
+                    onClick={() => navigate('/briefs')}
+                    className="text-sm text-blue-600 hover:text-blue-800 mt-1"
+                  >
+                    📋 Created from brief: {sourceBrief.title}
+                  </button>
+                )}
               </div>
             </div>
-          )}
+            {document && (
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) handleExport(e.target.value)
+                      e.target.value = ''
+                    }}
+                    className="btn-secondary"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Export</option>
+                    <option value="docx">Word (DOCX)</option>
+                    <option value="pdf">PDF</option>
+                    <option value="markdown">Markdown</option>
+                    <option value="html">HTML</option>
+                    <option value="text">Plain Text</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -274,7 +315,22 @@ export default function DocumentPage() {
             navigate('/')
           }
         }}
+        onCreateFromBrief={handleCreateFromBrief}
       />
+
+      {/* Document Brief Wizard */}
+      {showBriefWizard && (
+        <DocumentBriefWizard
+          onComplete={handleBriefComplete}
+          onCancel={() => {
+            setShowBriefWizard(false)
+            // If we're on /new and user cancels, go back to dashboard
+            if (id === 'new' && !document) {
+              navigate('/')
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

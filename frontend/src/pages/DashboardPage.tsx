@@ -6,7 +6,7 @@ import { DocumentIR } from '../types/document'
 import { Conversation } from '../types/conversation'
 import ConfirmDialog from '../components/ConfirmDialog'
 
-type TabType = 'conversations' | 'documents'
+type TabType = 'conversations' | 'documents' | 'briefs'
 
 export default function DashboardPage() {
   const [documents, setDocuments] = useState<DocumentIR[]>([])
@@ -138,7 +138,7 @@ export default function DashboardPage() {
         )}
 
         {/* Tabs */}
-        <div className="mb-6 flex space-x-1 bg-white rounded-lg shadow-md p-1 max-w-md">
+        <div className="mb-6 flex space-x-1 bg-white rounded-lg shadow-md p-1 max-w-2xl">
           <button
             onClick={() => setActiveTab('conversations')}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
@@ -159,6 +159,16 @@ export default function DashboardPage() {
           >
             📄 Documents
           </button>
+          <button
+            onClick={() => setActiveTab('briefs')}
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+              activeTab === 'briefs'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            📋 Briefs
+          </button>
         </div>
 
         {/* Create Buttons */}
@@ -174,6 +184,12 @@ export default function DashboardPage() {
             className="btn-secondary text-lg px-6 py-3 shadow-lg hover:shadow-xl"
           >
             + Quick Document
+          </button>
+          <button
+            onClick={() => navigate('/briefs')}
+            className="btn-secondary text-lg px-6 py-3 shadow-lg hover:shadow-xl border-2 border-blue-600"
+          >
+            + Document Brief
           </button>
         </div>
 
@@ -262,6 +278,20 @@ export default function DashboardPage() {
                   </div>
                 )}
               </>
+            )}
+
+            {/* Briefs Tab */}
+            {activeTab === 'briefs' && (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <div className="text-6xl mb-4">📋</div>
+                <h2 className="text-2xl font-semibold text-gray-700 mb-2">Document Briefs</h2>
+                <p className="text-gray-500 mb-6">
+                  Plan your documents with a structured wizard approach
+                </p>
+                <button onClick={() => navigate('/briefs')} className="btn-primary">
+                  View Document Briefs
+                </button>
+              </div>
             )}
           </>
         )}

@@ -18,6 +18,7 @@ interface DocumentConfigModalProps {
   initialConfig?: Partial<DocumentRequirements>
   onConfirm: (config: DocumentRequirements) => void
   onCancel: () => void
+  onCreateFromBrief?: () => void
 }
 
 export default function DocumentConfigModal({
@@ -25,6 +26,7 @@ export default function DocumentConfigModal({
   initialConfig,
   onConfirm,
   onCancel,
+  onCreateFromBrief,
 }: DocumentConfigModalProps) {
   const [config, setConfig] = useState<DocumentRequirements>(getDefaultRequirements())
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -119,6 +121,23 @@ export default function DocumentConfigModal({
             <p className="text-sm text-gray-500 mt-1">
               Customize your document settings to get the best results
             </p>
+            {onCreateFromBrief && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-gray-700 mb-2">
+                  Want more control over your document?
+                </p>
+                <button
+                  type="button"
+                  onClick={onCreateFromBrief}
+                  className="text-sm font-medium text-blue-700 hover:text-blue-800 underline"
+                >
+                  Create from Brief instead →
+                </button>
+                <p className="text-xs text-gray-500 mt-1">
+                  Use the structured wizard to plan your document step-by-step
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
