@@ -344,6 +344,7 @@ export function DocumentBriefWizard({
               topicsToAvoid={formData.topics_to_avoid}
               additionalInstructions={formData.additional_instructions}
               citationStyle={formData.citation_style}
+              briefId={briefId}
               onChange={updateField}
             />
           )}

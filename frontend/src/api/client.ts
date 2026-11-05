@@ -402,4 +402,33 @@ export const api = {
     if (!res.ok) throw new Error('Failed to get file content');
     return res.json();
   },
+
+  // Brief attachments
+  async attachFileToBrief(briefId: string, fileId: string) {
+    const res = await fetch(`${API_BASE}/knowledge/document-briefs/${briefId}/attachments?file_id=${fileId}`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.detail || 'Failed to attach file to brief');
+    }
+    return res.json();
+  },
+
+  async getBriefAttachments(briefId: string) {
+    const res = await fetch(`${API_BASE}/knowledge/document-briefs/${briefId}/attachments`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to get brief attachments');
+    return res.json();
+  },
+
+  async detachFileFromBrief(briefId: string, fileId: string) {
+    const res = await fetch(`${API_BASE}/knowledge/document-briefs/${briefId}/attachments/${fileId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to detach file from brief');
+  },
 };

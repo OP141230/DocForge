@@ -1,5 +1,6 @@
 import { Plus, X, Info } from 'lucide-react';
 import { Step4_DocumentSpecific, validateStep4 } from './Step4_DocumentSpecific';
+import { FileAttachmentSelector } from './FileAttachmentSelector';
 
 interface Step4Props {
   documentType: string;
@@ -9,6 +10,7 @@ interface Step4Props {
   topicsToAvoid: string[];
   additionalInstructions: string;
   citationStyle: string;
+  briefId: string | null;
   onChange: (field: string, value: any) => void;
 }
 
@@ -32,6 +34,7 @@ export function Step4_DocumentSpecificAndAdditional({
   topicsToAvoid,
   additionalInstructions,
   citationStyle,
+  briefId,
   onChange,
 }: Step4Props) {
   const needsCitations = CITATION_REQUIRING_TYPES.includes(documentType);
@@ -86,7 +89,7 @@ export function Step4_DocumentSpecificAndAdditional({
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Document-Specific Details & Instructions</h2>
         <p className="text-gray-600">
-          Provide type-specific information and additional guidance for your document.
+          Provide type-specific information, attach reference files, and add additional guidance for your document.
         </p>
       </div>
 
@@ -97,6 +100,15 @@ export function Step4_DocumentSpecificAndAdditional({
           documentType={documentType}
           documentSpecificData={documentSpecificData}
           onChange={onChange}
+        />
+      </div>
+
+      {/* File Attachments */}
+      <div className="border-b border-gray-200 pb-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Reference Files</h3>
+        <FileAttachmentSelector
+          briefId={briefId}
+          onAttachmentsChange={(fileIds) => onChange('attached_file_ids', fileIds)}
         />
       </div>
 

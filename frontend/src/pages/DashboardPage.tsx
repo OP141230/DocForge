@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { MessageSquare, FileText, ClipboardList, Library, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../api/client'
 import { DocumentIR } from '../types/document'
@@ -141,39 +142,43 @@ export default function DashboardPage() {
         <div className="mb-6 flex space-x-1 bg-white rounded-lg shadow-md p-1 max-w-3xl">
           <button
             onClick={() => setActiveTab('conversations')}
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2 ${
               activeTab === 'conversations'
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            💬 Conversations
+            <MessageSquare className="w-4 h-4" />
+            <span>Conversations</span>
           </button>
           <button
             onClick={() => setActiveTab('documents')}
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2 ${
               activeTab === 'documents'
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            📄 Documents
+            <FileText className="w-4 h-4" />
+            <span>Documents</span>
           </button>
           <button
             onClick={() => setActiveTab('briefs')}
-            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
+            className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors flex items-center justify-center gap-2 ${
               activeTab === 'briefs'
                 ? 'bg-blue-600 text-white'
                 : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
-            📋 Briefs
+            <ClipboardList className="w-4 h-4" />
+            <span>Briefs</span>
           </button>
           <button
             onClick={() => navigate('/knowledge')}
-            className="flex-1 px-4 py-2 rounded-md font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+            className="flex-1 px-4 py-2 rounded-md font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
           >
-            📚 Knowledge
+            <Library className="w-4 h-4" />
+            <span>Knowledge</span>
           </button>
         </div>
 
@@ -181,21 +186,24 @@ export default function DashboardPage() {
         <div className="mb-8 flex space-x-4">
           <button
             onClick={createNewConversation}
-            className="btn-primary text-lg px-6 py-3 shadow-lg hover:shadow-xl"
+            className="btn-primary text-lg px-6 py-3 shadow-lg hover:shadow-xl flex items-center gap-2"
           >
-            + New Conversation
+            <Plus className="w-5 h-5" />
+            <span>New Conversation</span>
           </button>
           <button
             onClick={createNewDocument}
-            className="btn-secondary text-lg px-6 py-3 shadow-lg hover:shadow-xl"
+            className="btn-secondary text-lg px-6 py-3 shadow-lg hover:shadow-xl flex items-center gap-2"
           >
-            + Quick Document
+            <Plus className="w-5 h-5" />
+            <span>Quick Document</span>
           </button>
           <button
             onClick={() => navigate('/briefs')}
-            className="btn-secondary text-lg px-6 py-3 shadow-lg hover:shadow-xl border-2 border-blue-600"
+            className="btn-secondary text-lg px-6 py-3 shadow-lg hover:shadow-xl border-2 border-blue-600 flex items-center gap-2"
           >
-            + Document Brief
+            <Plus className="w-5 h-5" />
+            <span>Document Brief</span>
           </button>
         </div>
 
@@ -212,7 +220,7 @@ export default function DashboardPage() {
               <>
                 {conversations.length === 0 ? (
                   <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                    <div className="text-6xl mb-4">💬</div>
+                    <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h2 className="text-2xl font-semibold text-gray-700 mb-2">No conversations yet</h2>
                     <p className="text-gray-500 mb-6">Start a conversation to generate documents</p>
                     <button onClick={createNewConversation} className="btn-primary">
@@ -233,10 +241,11 @@ export default function DashboardPage() {
                         </p>
                         <button
                           onClick={(e) => deleteConversation(conv.id, e)}
-                          className="absolute top-4 right-4 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-4 right-4 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
                           title="Delete conversation"
+                          aria-label="Delete conversation"
                         >
-                          🗑️
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -250,7 +259,7 @@ export default function DashboardPage() {
               <>
                 {documents.length === 0 ? (
                   <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                    <div className="text-6xl mb-4">📄</div>
+                    <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                     <h2 className="text-2xl font-semibold text-gray-700 mb-2">No documents yet</h2>
                     <p className="text-gray-500 mb-6">Create your first document to get started</p>
                     <button onClick={createNewDocument} className="btn-primary">
@@ -274,10 +283,11 @@ export default function DashboardPage() {
                         </p>
                         <button
                           onClick={(e) => deleteDocument(doc.id, e)}
-                          className="absolute top-4 right-4 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-4 right-4 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1"
                           title="Delete document"
+                          aria-label="Delete document"
                         >
-                          🗑️
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -289,7 +299,7 @@ export default function DashboardPage() {
             {/* Briefs Tab */}
             {activeTab === 'briefs' && (
               <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                <div className="text-6xl mb-4">📋</div>
+                <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h2 className="text-2xl font-semibold text-gray-700 mb-2">Document Briefs</h2>
                 <p className="text-gray-500 mb-6">
                   Plan your documents with a structured wizard approach
