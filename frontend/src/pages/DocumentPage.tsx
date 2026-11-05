@@ -11,7 +11,6 @@ export default function DocumentPage() {
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
   useEffect(() => {
     if (id && id !== 'new') {
@@ -103,7 +102,6 @@ export default function DocumentPage() {
           </div>
           {document && (
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">{saveStatus}</span>
               <div className="relative">
                 <select
                   onChange={(e) => {
