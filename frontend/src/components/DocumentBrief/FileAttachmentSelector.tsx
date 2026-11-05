@@ -47,7 +47,7 @@ export function FileAttachmentSelector({ briefId, onAttachmentsChange }: FileAtt
     try {
       const response = await api.getBriefAttachments(briefId);
       setAttachedFiles(response.files || []);
-      const ids = new Set((response.files || []).map((f: KnowledgeFile) => f.id));
+      const ids = new Set<string>((response.files || []).map((f: KnowledgeFile) => f.id));
       setAttachedFileIds(ids);
       onAttachmentsChange(Array.from(ids));
     } catch (err: any) {

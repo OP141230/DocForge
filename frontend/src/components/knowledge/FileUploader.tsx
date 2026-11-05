@@ -1,5 +1,5 @@
 import { useState, useRef, DragEvent } from 'react'
-import { Upload, File, X } from 'lucide-react'
+import { Upload, X } from 'lucide-react'
 import { api } from '../../api/client'
 import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE_BYTES, formatFileSize } from '../../types/knowledge'
 
