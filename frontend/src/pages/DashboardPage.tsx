@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { api } from '../api/client'
 import { DocumentIR } from '../types/document'
 import { Conversation } from '../types/conversation'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 type TabType = 'conversations' | 'documents'
 
@@ -12,6 +13,14 @@ export default function DashboardPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabType>('conversations')
+  const [error, setError] = useState<string | null>(null)
+  
+  // Confirmation dialog state
+  const [showDeleteConvDialog, setShowDeleteConvDialog] = useState(false)
+  const [convToDelete, setConvToDelete] = useState<string | null>(null)
+  const [showDeleteDocDialog, setShowDeleteDocDialog] = useState(false)
+  const [docToDelete, setDocToDelete] = useState<string | null>(null)
+  
   const navigate = useNavigate()
   const { user, logout } = useAuth()
 
@@ -49,13 +58,43 @@ export default function DashboardPage() {
 
   const deleteConversation = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Are you sure you want to delete this conversation?')) return
+    setConvToDelete(id)
+    setShowDeleteConvDialog(true)
+  }
+
+  const confirmDeleteConversation = async () => {
+    if (!convToDelete) return
     
     try {
-      await api.deleteConversation(id)
-      setConversations(conversations.filter(c => c.id !== id))
-    } catch (error) {
+      await api.deleteConversation(convToDelete)
+      setConversations(conversations.filter(c => c.id !== convToDelete))
+      setShowDeleteConvDialog(false)
+      setConvToDelete(null)
+    } catch (error: any) {
       console.error('Failed to delete conversation:', error)
+      setError(error.message || 'Failed to delete conversation')
+      setShowDeleteConvDialog(false)
+    }
+  }
+
+  const deleteDocument = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDocToDelete(id)
+    setShowDeleteDocDialog(true)
+  }
+
+  const confirmDeleteDocument = async () => {
+    if (!docToDelete) return
+    
+    try {
+      await api.deleteDocument(docToDelete)
+      setDocuments(documents.filter(d => d.id !== docToDelete))
+      setShowDeleteDocDialog(false)
+      setDocToDelete(null)
+    } catch (error: any) {
+      console.error('Failed to delete document:', error)
+      setError(error.message || 'Failed to delete document')
+      setShowDeleteDocDialog(false)
     }
   }
 
@@ -84,6 +123,19 @@ export default function DashboardPage() {
             Logout
           </button>
         </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-700 hover:text-red-900 font-semibold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="mb-6 flex space-x-1 bg-white rounded-lg shadow-md p-1 max-w-md">
@@ -151,7 +203,7 @@ export default function DashboardPage() {
                       <div
                         key={conv.id}
                         onClick={() => navigate(`/conversation/${conv.id}`)}
-                        className="bg-white rounded-lg shadow-md p-6 hover:shadow-xl transition-shadow cursor-pointer relative group"
+                        className="bg-white rounded-lg shadow-md p-6 hover:shadow-xl transition-all duration-200 cursor-pointer relative group transform hover:scale-105"
                       >
                         <h3 className="text-xl font-semibold text-gray-900 mb-2 pr-8">{conv.title}</h3>
                         <p className="text-xs text-gray-400">
@@ -189,15 +241,22 @@ export default function DashboardPage() {
                       <div
                         key={doc.id}
                         onClick={() => navigate(`/document/${doc.id}`)}
-                        className="bg-white rounded-lg shadow-md p-6 hover:shadow-xl transition-shadow cursor-pointer"
+                        className="bg-white rounded-lg shadow-md p-6 hover:shadow-xl transition-all duration-200 cursor-pointer relative group transform hover:scale-105"
                       >
-                        <h3 className="text-xl font-semibold text-gray-900 mb-2">{doc.title}</h3>
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2 pr-8">{doc.title}</h3>
                         <p className="text-sm text-gray-500 mb-2">
                           {doc.metadata.document_type.replace('_', ' ')}
                         </p>
                         <p className="text-xs text-gray-400">
                           Updated {new Date(doc.updated_at).toLocaleDateString()}
                         </p>
+                        <button
+                          onClick={(e) => deleteDocument(doc.id, e)}
+                          className="absolute top-4 right-4 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete document"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -207,6 +266,35 @@ export default function DashboardPage() {
           </>
         )}
       </div>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmDialog
+        isOpen={showDeleteConvDialog}
+        title="Delete Conversation"
+        message="Are you sure you want to delete this conversation? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={confirmDeleteConversation}
+        onCancel={() => {
+          setShowDeleteConvDialog(false)
+          setConvToDelete(null)
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteDocDialog}
+        title="Delete Document"
+        message="Are you sure you want to delete this document? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={confirmDeleteDocument}
+        onCancel={() => {
+          setShowDeleteDocDialog(false)
+          setDocToDelete(null)
+        }}
+      />
     </div>
   )
 }

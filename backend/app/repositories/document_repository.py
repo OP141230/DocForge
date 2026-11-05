@@ -14,16 +14,18 @@ class DocumentRepository:
     def __init__(self, db: Database):
         self.db = db
     
-    async def create(self, document: DocumentIR) -> DocumentIR:
+    async def create(self, document: DocumentIR, user_id: str, conversation_id: Optional[str] = None) -> DocumentIR:
         """Create a new document."""
         async with self.db.connection.cursor() as cursor:
             await cursor.execute(
                 """
-                INSERT INTO documents (id, title, content, metadata, created_at, updated_at, schema_version)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO documents (id, user_id, conversation_id, title, content, metadata, created_at, updated_at, schema_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     document.id,
+                    user_id,
+                    conversation_id,
                     document.title,
                     json.dumps([section.model_dump() for section in document.content]),
                     json.dumps(document.metadata.model_dump()),
@@ -35,13 +37,19 @@ class DocumentRepository:
             await self.db.connection.commit()
         return document
     
-    async def get_by_id(self, document_id: str) -> Optional[DocumentIR]:
-        """Retrieve a document by ID."""
+    async def get_by_id(self, document_id: str, user_id: Optional[str] = None) -> Optional[DocumentIR]:
+        """Retrieve a document by ID, optionally filtered by user_id."""
         async with self.db.connection.cursor() as cursor:
-            await cursor.execute(
-                "SELECT * FROM documents WHERE id = ?",
-                (document_id,),
-            )
+            if user_id:
+                await cursor.execute(
+                    "SELECT * FROM documents WHERE id = ? AND user_id = ?",
+                    (document_id, user_id),
+                )
+            else:
+                await cursor.execute(
+                    "SELECT * FROM documents WHERE id = ?",
+                    (document_id,),
+                )
             row = await cursor.fetchone()
             
             if not row:
@@ -49,20 +57,31 @@ class DocumentRepository:
             
             return self._row_to_document(row)
     
-    async def list_documents(self, limit: int = 20, offset: int = 0) -> Tuple[List[DocumentIR], int]:
-        """List documents with pagination."""
+    async def list_documents(self, limit: int = 20, offset: int = 0, user_id: Optional[str] = None) -> Tuple[List[DocumentIR], int]:
+        """List documents with pagination, optionally filtered by user_id."""
         async with self.db.connection.cursor() as cursor:
-            # Get total count
-            await cursor.execute("SELECT COUNT(*) FROM documents")
-            total = (await cursor.fetchone())[0]
+            if user_id:
+                # Get total count for user
+                await cursor.execute("SELECT COUNT(*) FROM documents WHERE user_id = ?", (user_id,))
+                total = (await cursor.fetchone())[0]
+                
+                # Get documents for user
+                await cursor.execute(
+                    "SELECT * FROM documents WHERE user_id = ? ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                    (user_id, limit, offset),
+                )
+            else:
+                # Get total count
+                await cursor.execute("SELECT COUNT(*) FROM documents")
+                total = (await cursor.fetchone())[0]
+                
+                # Get documents
+                await cursor.execute(
+                    "SELECT * FROM documents ORDER BY updated_at DESC LIMIT ? OFFSET ?",
+                    (limit, offset),
+                )
             
-            # Get documents
-            await cursor.execute(
-                "SELECT * FROM documents ORDER BY updated_at DESC LIMIT ? OFFSET ?",
-                (limit, offset),
-            )
             rows = await cursor.fetchall()
-            
             documents = [self._row_to_document(row) for row in rows]
             return documents, total
     
@@ -89,10 +108,13 @@ class DocumentRepository:
         
         return document
     
-    async def delete(self, document_id: str) -> bool:
-        """Delete a document."""
+    async def delete(self, document_id: str, user_id: Optional[str] = None) -> bool:
+        """Delete a document, optionally filtered by user_id."""
         async with self.db.connection.cursor() as cursor:
-            await cursor.execute("DELETE FROM documents WHERE id = ?", (document_id,))
+            if user_id:
+                await cursor.execute("DELETE FROM documents WHERE id = ? AND user_id = ?", (document_id, user_id))
+            else:
+                await cursor.execute("DELETE FROM documents WHERE id = ?", (document_id,))
             await self.db.connection.commit()
             return cursor.rowcount > 0
     

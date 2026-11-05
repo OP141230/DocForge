@@ -1,5 +1,5 @@
 """Generation endpoints."""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from app.models.generation import (
     DocumentRequirements,
@@ -8,14 +8,19 @@ from app.models.generation import (
     SectionGenerationRequest,
 )
 from app.models.document_ir import DocumentIR, Section
+from app.models.auth import User
+from app.core.auth import get_current_user
 from app.providers.factory import get_provider
 
 router = APIRouter()
 
 
 @router.post("/generate/outline", response_model=OutlineResponse)
-async def generate_outline(requirements: DocumentRequirements):
-    """Generate document outline from requirements."""
+async def generate_outline(
+    requirements: DocumentRequirements,
+    current_user: User = Depends(get_current_user)
+):
+    """Generate document outline from requirements (requires authentication)."""
     try:
         provider = get_provider()
         outline = await provider.generate_outline(requirements)
@@ -25,8 +30,11 @@ async def generate_outline(requirements: DocumentRequirements):
 
 
 @router.post("/generate/content", response_model=DocumentIR)
-async def generate_content(request: ContentGenerationRequest):
-    """Generate full document content from approved outline."""
+async def generate_content(
+    request: ContentGenerationRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Generate full document content from approved outline (requires authentication)."""
     try:
         provider = get_provider()
         # Wrap the outline list in OutlineResponse for the provider
@@ -38,8 +46,11 @@ async def generate_content(request: ContentGenerationRequest):
 
 
 @router.post("/generate/section", response_model=Section)
-async def generate_section(request: SectionGenerationRequest):
-    """Generate or transform a single section."""
+async def generate_section(
+    request: SectionGenerationRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """Generate or transform a single section (requires authentication)."""
     try:
         provider = get_provider()
         section = await provider.generate_section(

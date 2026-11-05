@@ -2,19 +2,23 @@ import { useState, useEffect } from 'react'
 import React from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
-import { DocumentIR } from '../types/document'
+import { DocumentIR, DocumentRequirements } from '../types/document'
+import DocumentConfigModal from '../components/DocumentConfigModal'
 
 export default function DocumentPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [document, setDocument] = useState<DocumentIR | null>(null)
-  const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showConfigModal, setShowConfigModal] = useState(false)
 
   useEffect(() => {
     if (id && id !== 'new') {
       loadDocument(id)
+    } else if (id === 'new') {
+      // Auto-open config modal for new documents
+      setShowConfigModal(true)
     }
   }, [id])
 
@@ -28,37 +32,19 @@ export default function DocumentPage() {
     }
   }
 
-  const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      setError('Please enter a prompt')
-      return
-    }
-
+  const handleGenerate = async (requirements: DocumentRequirements) => {
     setLoading(true)
     setError(null)
+    setShowConfigModal(false)
     
     try {
-      // Simple approach: Generate outline from prompt, then content directly
-      const outlineResponse = await api.generateOutline({
-        document_type: 'general_report',
-        topic: prompt,
-        title: prompt.split('.')[0] || prompt.substring(0, 50),
-        tone: 'professional',
-        language: 'en',
-        length: 'medium',
-      })
+      // Generate outline from requirements
+      const outlineResponse = await api.generateOutline(requirements)
 
-      // Pass the outline array, not the whole response object
+      // Generate content from outline
       const doc = await api.generateContent(
-        outlineResponse.outline,  // Just the array, not the whole object
-        {
-          document_type: 'general_report',
-          topic: prompt,
-          title: prompt.split('.')[0] || prompt.substring(0, 50),
-          tone: 'professional',
-          language: 'en',
-          length: 'medium',
-        }
+        outlineResponse.outline,
+        requirements
       )
 
       const created = await api.createDocument(doc)
@@ -70,6 +56,10 @@ export default function DocumentPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleReconfigure = () => {
+    setShowConfigModal(true)
   }
 
   const handleExport = async (format: string) => {
@@ -125,58 +115,57 @@ export default function DocumentPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Prompt Input (if no document yet) */}
-        {!document && (
-          <div className="bg-white rounded-lg shadow-md p-8 max-w-3xl mx-auto">
-            <h2 className="text-2xl font-semibold mb-6">What would you like to create?</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Describe your document
-                </label>
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="input-field min-h-[200px] resize-y"
-                  placeholder="Example: Create a technical documentation for a REST API that explains authentication, endpoints, and error handling..."
-                  disabled={loading}
-                />
-              </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="bg-white rounded-lg shadow-md p-8 max-w-3xl mx-auto text-center">
+            <div className="flex items-center justify-center space-x-3 mb-4">
+              <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span className="text-xl font-semibold text-gray-900">Generating your document...</span>
+            </div>
+            <p className="text-gray-600">This may take a few moments. Please wait.</p>
+          </div>
+        )}
 
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                  {error}
-                </div>
-              )}
-
+        {/* Error Display */}
+        {error && !loading && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 max-w-3xl mx-auto">
+            <div className="flex items-center justify-between">
+              <span>{error}</span>
               <button
-                onClick={handleGenerate}
-                disabled={loading || !prompt.trim()}
-                className="btn-primary w-full text-lg py-3"
+                onClick={() => setError(null)}
+                className="text-red-700 hover:text-red-900 font-semibold"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Generating...
-                  </span>
-                ) : (
-                  '✨ Generate Document'
-                )}
+                ✕
               </button>
-
-              <p className="text-sm text-gray-500 text-center mt-4">
-                Using mock AI provider (no API key needed). For better results, configure OpenAI in .env
-              </p>
             </div>
           </div>
         )}
 
+        {/* Prompt to configure (if no document and not loading) */}
+        {!document && !loading && (
+          <div className="bg-white rounded-lg shadow-md p-8 max-w-3xl mx-auto text-center">
+            <div className="text-6xl mb-4">📝</div>
+            <h2 className="text-2xl font-semibold mb-4">Ready to Create Your Document</h2>
+            <p className="text-gray-600 mb-6">
+              Click the button below to configure your document settings and start generating.
+            </p>
+            <button
+              onClick={() => setShowConfigModal(true)}
+              className="btn-primary text-lg px-8 py-3"
+            >
+              ⚙️ Configure & Generate
+            </button>
+            <p className="text-sm text-gray-500 mt-4">
+              Using mock AI provider (no API key needed)
+            </p>
+          </div>
+        )}
+
         {/* Document Content View */}
-        {document && (
+        {document && !loading && (
           <div className="bg-white rounded-lg shadow-md p-8">
             <div className="prose max-w-none">
               <h1>{document.title}</h1>
@@ -241,11 +230,16 @@ export default function DocumentPage() {
               ))}
             </div>
 
-            <div className="mt-8 pt-6 border-t border-gray-200 flex justify-center">
+            <div className="mt-8 pt-6 border-t border-gray-200 flex justify-center space-x-4">
+              <button
+                onClick={handleReconfigure}
+                className="btn-secondary"
+              >
+                ⚙️ Reconfigure & Regenerate
+              </button>
               <button
                 onClick={() => {
                   setDocument(null)
-                  setPrompt('')
                   navigate('/document/new', { replace: true })
                 }}
                 className="btn-secondary"
@@ -256,6 +250,31 @@ export default function DocumentPage() {
           </div>
         )}
       </div>
+
+      {/* Document Configuration Modal */}
+      <DocumentConfigModal
+        isOpen={showConfigModal}
+        initialConfig={
+          document
+            ? {
+                document_type: document.metadata.document_type,
+                title: document.title,
+                topic: document.title,
+                audience: document.metadata.audience || undefined,
+                tone: document.metadata.tone || undefined,
+                language: document.metadata.language,
+              }
+            : undefined
+        }
+        onConfirm={handleGenerate}
+        onCancel={() => {
+          setShowConfigModal(false)
+          // If we're on /new and user cancels, go back to dashboard
+          if (id === 'new' && !document) {
+            navigate('/')
+          }
+        }}
+      />
     </div>
   )
 }

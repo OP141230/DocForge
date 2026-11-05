@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 import { Conversation, Message } from '../types/conversation'
+import { DocumentRequirements } from '../types/document'
+import DocumentConfigModal from '../components/DocumentConfigModal'
 
 export default function ConversationPage() {
   const { id } = useParams<{ id: string }>()
@@ -13,6 +15,7 @@ export default function ConversationPage() {
   const [error, setError] = useState<string | null>(null)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
+  const [showConfigModal, setShowConfigModal] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -110,40 +113,20 @@ export default function ConversationPage() {
     }
   }
 
-  const handleGenerateDocument = async () => {
+  const handleGenerateDocument = async (requirements: DocumentRequirements) => {
     if (!id) return
     
     setLoading(true)
     setError(null)
+    setShowConfigModal(false)
 
     try {
-      // Get the last user message as the prompt
-      const lastUserMessage = [...messages].reverse().find(m => m.role === 'user')
-      if (!lastUserMessage) {
-        setError('No user message found to generate document')
-        return
-      }
-
       // Generate outline and content
-      const outlineResponse = await api.generateOutline({
-        document_type: 'general_report',
-        topic: lastUserMessage.content,
-        title: lastUserMessage.content.split('.')[0] || lastUserMessage.content.substring(0, 50),
-        tone: 'professional',
-        language: 'en',
-        length: 'medium',
-      })
+      const outlineResponse = await api.generateOutline(requirements)
 
       const doc = await api.generateContent(
         outlineResponse.outline,
-        {
-          document_type: 'general_report',
-          topic: lastUserMessage.content,
-          title: lastUserMessage.content.split('.')[0] || lastUserMessage.content.substring(0, 50),
-          tone: 'professional',
-          language: 'en',
-          length: 'medium',
-        }
+        requirements
       )
 
       const created = await api.createDocument(doc)
@@ -156,6 +139,11 @@ export default function ConversationPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const openGenerateDocumentModal = () => {
+    // Modal will auto-populate from initialConfig prop
+    setShowConfigModal(true)
   }
 
   if (error && !conversation) {
@@ -207,7 +195,7 @@ export default function ConversationPage() {
             </div>
 
             <button
-              onClick={handleGenerateDocument}
+              onClick={openGenerateDocumentModal}
               disabled={loading || messages.length === 0}
               className="btn-primary text-sm"
             >
@@ -307,6 +295,17 @@ export default function ConversationPage() {
           </p>
         </div>
       </div>
+
+      {/* Document Configuration Modal */}
+      <DocumentConfigModal
+        isOpen={showConfigModal}
+        initialConfig={{
+          topic: [...messages].reverse().find(m => m.role === 'user')?.content || '',
+          title: [...messages].reverse().find(m => m.role === 'user')?.content.split('.')[0] || 'Untitled Document',
+        }}
+        onConfirm={handleGenerateDocument}
+        onCancel={() => setShowConfigModal(false)}
+      />
     </div>
   )
 }

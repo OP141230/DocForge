@@ -4,15 +4,25 @@
 
 DocForge is an all-round documentation agent that helps you plan, generate, research, edit, verify, organize, and export documents in formats appropriate to your needs.
 
-## Features (Phase 1)
+## Features
 
+### Phase 1 (Complete ✅)
 - 📝 **Conversational Planning**: Describe your document needs naturally
-- 🤖 **AI-Powered Generation**: Generate structured outlines and content
-- ✏️ **Rich Editing**: Full-featured document editor with formatting, tables, code blocks
+- 🤖 **AI-Powered Generation**: Generate structured outlines and content (Groq AI)
+- ✏️ **Rich Editing**: Full-featured document editor with formatting
 - 📚 **Version History**: Save and restore previous versions
 - 📤 **Multi-Format Export**: Export to DOCX, PDF, Markdown, HTML, and plain text
 - 💾 **Auto-Save**: Never lose your work
 - 🎨 **Modern UI**: Clean, responsive, accessible interface
+
+### Phase 2 (Complete ✅)
+- 🔐 **User Authentication**: Secure registration and login with Argon2id hashing
+- 👤 **Personal Workspace**: Each user has their own private documents and conversations
+- 💬 **Conversation Management**: Create and manage document generation conversations
+- 🗨️ **Chat Interface**: Beautiful chat-style interface for interacting with the AI
+- 🔒 **Data Isolation**: Complete privacy - users can only see their own content
+- 📱 **Responsive Design**: Works perfectly on desktop, tablet, and mobile
+- 🔗 **Document-Conversation Links**: Associate documents with conversations for context
 
 ## Tech Stack
 
@@ -81,7 +91,15 @@ cd frontend
 npm install
 ```
 
-### 5. Run the Application
+### 5. Initialize Database
+
+```powershell
+cd backend
+.venv\Scripts\Activate.ps1
+python migrate_db.py
+```
+
+### 6. Run the Application
 
 **Using Startup Script (Easiest with Groq):**
 ```powershell
@@ -92,12 +110,15 @@ npm install
 
 **Terminal 1 - Backend:**
 ```powershell
+cd backend
+.venv\Scripts\Activate.ps1
+
 # Set environment variables (if using Groq)
 $env:AI_PROVIDER = "groq"
 $env:GROQ_API_KEY = "your-key-here"
 $env:GROQ_MODEL = "openai/gpt-oss-120b"
 
-cd backend
+python -m uvicorn main:app --reload
 .venv\Scripts\Activate.ps1
 python -m uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -271,3 +292,125 @@ See `.kiro/steering/docforge-engineering-guide.md` for development guidelines an
 ---
 
 Built with ❤️ using modern web technologies
+
+
+## Phase 2 Features Guide
+
+### Authentication
+1. **Register**: Create an account at `/register`
+   - Secure password requirements enforced
+   - Auto-login after registration
+2. **Login**: Access at `/login`
+   - Session-based authentication
+   - HTTP-only cookies for security
+
+### Conversations
+1. **Create Conversation**: Click "New Conversation" in dashboard
+2. **Send Messages**: Type and press Enter to chat with AI
+3. **Edit Title**: Click on conversation title to rename
+4. **View History**: All messages saved and displayed chronologically
+
+### Documents
+1. **Generate from Prompt**: Use "New Document" for quick generation
+2. **Generate from Conversation**: Create documents within conversations
+3. **Export**: Choose from DOCX, PDF, Markdown, HTML, or Text
+4. **View All**: Dashboard shows all your documents
+
+### Data Privacy
+- All your data is private and isolated
+- Other users cannot see your conversations or documents
+- Secure session management with automatic expiry
+
+## Testing
+
+### Automated Tests
+```powershell
+# Test authentication
+python test_auth.py
+
+# Test data isolation
+python test_isolation.py
+
+# Test conversations
+python test_conversations.py
+
+# Complete integration test
+python test_phase2_complete.py
+```
+
+### Manual Testing
+See `TESTING_GUIDE.md` for complete manual testing checklist.
+
+## Documentation
+
+- **PHASE2_COMPLETE.md** - Complete Phase 2 documentation
+- **TESTING_GUIDE.md** - Manual testing instructions
+- **PHASE2C_COMPLETE.md** - Data isolation documentation
+
+## API Endpoints
+
+### Authentication (Public)
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login
+- `POST /api/auth/logout` - Logout
+- `GET /api/auth/me` - Get current user
+
+### Conversations (Protected)
+- `POST /api/conversations` - Create conversation
+- `GET /api/conversations` - List conversations
+- `GET /api/conversations/{id}` - Get conversation with messages
+- `PUT /api/conversations/{id}` - Update conversation title
+- `DELETE /api/conversations/{id}` - Delete conversation
+- `POST /api/conversations/{id}/messages` - Add message
+- `GET /api/conversations/{id}/messages` - List messages
+
+### Documents (Protected)
+- `POST /api/documents` - Create document
+- `GET /api/documents` - List documents
+- `GET /api/documents/{id}` - Get document
+- `PUT /api/documents/{id}` - Update document
+- `DELETE /api/documents/{id}` - Delete document
+- `POST /api/documents/{id}/export` - Export document
+
+### Generation (Protected)
+- `POST /api/generate/outline` - Generate outline
+- `POST /api/generate/content` - Generate content
+- `POST /api/generate/section` - Generate section
+
+## Database Schema
+
+- **users** - User accounts with password hashes
+- **sessions** - Session tokens for authentication
+- **conversations** - User conversations
+- **messages** - Messages within conversations (user + assistant)
+- **documents** - Generated documents with user and conversation associations
+- **document_versions** - Version history for documents
+
+## Security Features
+
+- ✅ Argon2id password hashing (OWASP recommended)
+- ✅ HTTP-only session cookies (XSS protection)
+- ✅ Session expiry (30 days)
+- ✅ User-scoped database queries
+- ✅ 404 responses for unauthorized access (prevents enumeration)
+- ✅ CORS configuration with credentials
+- ✅ Password strength validation
+
+## Project Status
+
+- ✅ **Phase 1**: Document generation and export (Complete)
+- ✅ **Phase 2**: Authentication and personal workspace (Complete)
+- 🔜 **Phase 3**: Advanced features (planned)
+
+## Contributing
+
+This project follows engineering best practices:
+- Clean architecture with separation of concerns
+- Type safety with TypeScript and Pydantic
+- Comprehensive testing (automated + manual)
+- Security-first design
+- Responsive and accessible UI
+
+## License
+
+MIT License - see LICENSE file for details
