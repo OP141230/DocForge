@@ -4,9 +4,11 @@ import { ProgressIndicator } from './ProgressIndicator';
 import { Step1_DocumentType } from './Step1_DocumentType';
 import { Step2_BasicInfo } from './Step2_BasicInfo';
 import { Step3_Preferences } from './Step3_Preferences';
-import { Step4_DocumentSpecific, validateStep4 } from './Step4_DocumentSpecific';
+import { Step4_DocumentSpecificAndAdditional, validateStep4 } from './Step4_DocumentSpecificAndAdditional';
+import { Step5_Review_New } from './Step5_Review_New';
+import { Step6_OutlineApproval_New } from './Step6_OutlineApproval_New';
 import { api } from '../../api/client';
-import type { DocumentBrief, CreateBriefRequest, UpdateBriefRequest } from '../../types/document_brief';
+import type { DocumentBrief, CreateBriefRequest, UpdateBriefRequest, OutlineItem } from '../../types/document_brief';
 
 interface DocumentBriefWizardProps {
   onComplete: (brief: DocumentBrief) => void;
@@ -61,6 +63,8 @@ export function DocumentBriefWizard({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(!!existingBriefId);
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const [isApproved, setIsApproved] = useState(false);
 
   // Load existing brief if resuming
   useEffect(() => {
@@ -93,6 +97,12 @@ export function DocumentBriefWizard({
       });
       
       setBriefId(id);
+      
+      // Load outline if exists
+      if (brief.outline && brief.outline.length > 0) {
+        setOutline(brief.outline);
+        setIsApproved(brief.outline_approved);
+      }
     } catch (error) {
       console.error('Failed to load brief:', error);
       setSaveError('Failed to load existing brief');
@@ -195,11 +205,41 @@ export function DocumentBriefWizard({
       case 4:
         return validateStep4(formData.document_type, formData.document_specific_data);
       case 5:
+        // Step 5 is review, always valid
+        return true;
       case 6:
-        // Steps 5-6 not implemented yet, allow proceeding
+        // Step 6 is outline approval, always valid
         return true;
       default:
         return false;
+    }
+  };
+
+  const handleEditFromReview = (step: number) => {
+    setCurrentStep(step);
+  };
+
+  const handleOutlineGenerated = (generatedOutline: OutlineItem[]) => {
+    setOutline(generatedOutline);
+    setIsApproved(false);
+  };
+
+  const handleOutlineUpdated = (updatedOutline: OutlineItem[]) => {
+    setOutline(updatedOutline);
+  };
+
+  const handleApproved = () => {
+    setIsApproved(true);
+  };
+
+  const handleDocumentGenerated = async () => {
+    if (!briefId) return;
+    try {
+      const brief: DocumentBrief = await api.getBrief(briefId);
+      onComplete(brief);
+    } catch (error) {
+      console.error('Failed to complete:', error);
+      setSaveError('Failed to complete document generation');
     }
   };
 
@@ -218,21 +258,6 @@ export function DocumentBriefWizard({
   const handleStepClick = (step: number) => {
     if (step < currentStep) {
       setCurrentStep(step);
-    }
-  };
-
-  const handleComplete = async () => {
-    if (!briefId) {
-      setSaveError('No brief to complete');
-      return;
-    }
-
-    try {
-      const brief: DocumentBrief = await api.getBrief(briefId);
-      onComplete(brief);
-    } catch (error) {
-      console.error('Failed to complete brief:', error);
-      setSaveError('Failed to complete brief');
     }
   };
 
@@ -309,23 +334,32 @@ export function DocumentBriefWizard({
           )}
 
           {currentStep === 4 && (
-            <Step4_DocumentSpecific
+            <Step4_DocumentSpecificAndAdditional
               documentType={formData.document_type}
               documentSpecificData={formData.document_specific_data}
+              requiredSections={formData.required_sections}
+              importantPoints={formData.important_points}
+              topicsToAvoid={formData.topics_to_avoid}
+              additionalInstructions={formData.additional_instructions}
+              citationStyle={formData.citation_style}
               onChange={updateField}
             />
           )}
 
           {currentStep === 5 && (
-            <div className="text-center py-12 text-gray-500">
-              Step 5: Instructions - Coming in next sprint
-            </div>
+            <Step5_Review_New formData={formData} onEdit={handleEditFromReview} />
           )}
 
           {currentStep === 6 && (
-            <div className="text-center py-12 text-gray-500">
-              Step 6: Review - Coming in next sprint
-            </div>
+            <Step6_OutlineApproval_New
+              briefId={briefId}
+              initialOutline={outline}
+              isApproved={isApproved}
+              onOutlineGenerated={handleOutlineGenerated}
+              onOutlineUpdated={handleOutlineUpdated}
+              onApproved={handleApproved}
+              onDocumentGenerated={handleDocumentGenerated}
+            />
           )}
 
           {saveError && (
@@ -346,9 +380,7 @@ export function DocumentBriefWizard({
             Previous
           </button>
 
-          <div className="text-sm text-gray-600">
-            Step {currentStep} of 6
-          </div>
+          <div className="text-sm text-gray-600">Step {currentStep} of 6</div>
 
           {currentStep < 6 ? (
             <button
@@ -360,13 +392,7 @@ export function DocumentBriefWizard({
               <ChevronRight className="w-5 h-5" />
             </button>
           ) : (
-            <button
-              onClick={handleComplete}
-              disabled={!validateCurrentStep()}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Complete
-            </button>
+            <div className="w-24">{/* Spacer for layout */}</div>
           )}
         </div>
       </div>
