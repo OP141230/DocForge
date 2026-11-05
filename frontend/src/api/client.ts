@@ -248,4 +248,92 @@ export const api = {
     if (!res.ok) throw new Error('Failed to list messages');
     return res.json();
   },
+
+  // Document Briefs
+  async createBrief(data: any) {
+    const res = await fetch(`${API_BASE}/document-briefs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.detail || 'Failed to create brief');
+    }
+    return res.json();
+  },
+
+  async listBriefs(limit = 20, offset = 0) {
+    const res = await fetch(`${API_BASE}/document-briefs?limit=${limit}&offset=${offset}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to list briefs');
+    return res.json();
+  },
+
+  async getBrief(id: string) {
+    const res = await fetch(`${API_BASE}/document-briefs/${id}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Brief not found');
+    return res.json();
+  },
+
+  async updateBrief(id: string, data: any) {
+    const res = await fetch(`${API_BASE}/document-briefs/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update brief');
+    return res.json();
+  },
+
+  async deleteBrief(id: string) {
+    const res = await fetch(`${API_BASE}/document-briefs/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete brief');
+  },
+
+  async generateBriefOutline(id: string) {
+    const res = await fetch(`${API_BASE}/document-briefs/${id}/outline`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to generate outline');
+    return res.json();
+  },
+
+  async updateBriefOutline(id: string, outline: any[]) {
+    const res = await fetch(`${API_BASE}/document-briefs/${id}/outline`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ outline }),
+    });
+    if (!res.ok) throw new Error('Failed to update outline');
+    return res.json();
+  },
+
+  async approveBriefOutline(id: string) {
+    const res = await fetch(`${API_BASE}/document-briefs/${id}/outline/approve`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to approve outline');
+    return res.json();
+  },
+
+  async generateFromBrief(id: string) {
+    const res = await fetch(`${API_BASE}/document-briefs/${id}/generate`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to generate document from brief');
+    return res.json();
+  },
 };

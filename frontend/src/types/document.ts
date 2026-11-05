@@ -95,13 +95,16 @@ export interface OutlineItem {
 
 // Document configuration enums and helpers
 export enum DocumentType {
-  GENERAL_REPORT = 'general_report',
-  ACADEMIC_REPORT = 'academic_report',
-  PROJECT_REPORT = 'project_report',
   TECHNICAL_DOCUMENTATION = 'technical_documentation',
-  BUSINESS_REPORT = 'business_report',
+  ACADEMIC_DOCUMENT = 'academic_document',
+  PROJECT_REPORT = 'project_report',
+  BUSINESS_DOCUMENT = 'business_document',
   ARTICLE = 'article',
   RESUME = 'resume',
+  GENERAL = 'general',
+  ESSAY = 'essay',
+  RESEARCH_PAPER = 'research_paper',
+  USER_GUIDE = 'user_guide',
 }
 
 export enum DocumentTone {
@@ -128,13 +131,16 @@ export enum DocumentAudience {
 }
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
-  [DocumentType.GENERAL_REPORT]: 'General Report',
-  [DocumentType.ACADEMIC_REPORT]: 'Academic Report',
-  [DocumentType.PROJECT_REPORT]: 'Project Report',
   [DocumentType.TECHNICAL_DOCUMENTATION]: 'Technical Documentation',
-  [DocumentType.BUSINESS_REPORT]: 'Business Report',
+  [DocumentType.ACADEMIC_DOCUMENT]: 'Academic Document',
+  [DocumentType.PROJECT_REPORT]: 'Project Report',
+  [DocumentType.BUSINESS_DOCUMENT]: 'Business Document',
   [DocumentType.ARTICLE]: 'Article',
   [DocumentType.RESUME]: 'Resume',
+  [DocumentType.GENERAL]: 'General',
+  [DocumentType.ESSAY]: 'Essay',
+  [DocumentType.RESEARCH_PAPER]: 'Research Paper',
+  [DocumentType.USER_GUIDE]: 'User Guide',
 }
 
 export const DOCUMENT_TONE_LABELS: Record<DocumentTone, string> = {
@@ -162,7 +168,7 @@ export const DOCUMENT_AUDIENCE_LABELS: Record<DocumentAudience, string> = {
 
 export function getDefaultRequirements(): DocumentRequirements {
   return {
-    document_type: DocumentType.GENERAL_REPORT,
+    document_type: DocumentType.GENERAL,
     topic: '',
     title: '',
     audience: DocumentAudience.GENERAL,
