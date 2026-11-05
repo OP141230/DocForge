@@ -60,6 +60,7 @@ Thumbs.db
 # Documentation (keep local only)
 PHASE1_COMPLETE.md
 PHASE2_COMPLETE.md
+AUDIT_REPORT.md
 
 # Logs
 *.log
