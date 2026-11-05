@@ -22,6 +22,8 @@ from app.core.database import get_database, Database
 from app.repositories.knowledge_file_repository import KnowledgeFileRepository
 from app.repositories.extracted_content_repository import ExtractedContentRepository
 from app.repositories.content_chunk_repository import ContentChunkRepository
+from app.repositories.brief_attachment_repository import BriefAttachmentRepository
+from app.repositories.document_brief_repository import DocumentBriefRepository
 from app.services.storage_service import get_storage_service
 from app.services.extraction_service import get_extraction_service
 from app.services.chunking_service import get_chunking_service
@@ -523,3 +525,146 @@ async def get_file_content(
     except Exception as e:
         logger.error(f"Get content failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get content: {str(e)}")
+
+
+@router.post("/document-briefs/{brief_id}/attachments")
+async def attach_file_to_brief(
+    brief_id: str,
+    file_id: str = Query(..., description="Knowledge file ID to attach"),
+    current_user: User = Depends(get_current_user),
+    db: Database = Depends(get_database)
+):
+    """
+    Attach a knowledge file to a document brief.
+    
+    This links an uploaded file to a brief so the file's content
+    can be used as source material during document generation.
+    
+    Security:
+    - User must be authenticated
+    - User must own both the brief and the file
+    - Duplicate attachments are prevented
+    """
+    try:
+        brief_repo = DocumentBriefRepository(db)
+        file_repo = KnowledgeFileRepository(db)
+        attachment_repo = BriefAttachmentRepository(db)
+        
+        # Verify brief ownership
+        brief = await brief_repo.get_by_id(brief_id, current_user.id)
+        if not brief:
+            raise HTTPException(status_code=404, detail="Document brief not found")
+        
+        # Verify file ownership
+        file = await file_repo.get_by_id(file_id, current_user.id)
+        if not file:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Check if file extraction completed
+        if file.extraction_status != "completed":
+            raise HTTPException(
+                status_code=400,
+                detail=f"File extraction not completed. Current status: {file.extraction_status}"
+            )
+        
+        # Check if already attached
+        exists = await attachment_repo.exists(brief_id, file_id, current_user.id)
+        if exists:
+            raise HTTPException(status_code=400, detail="File already attached to this brief")
+        
+        # Create attachment
+        attachment_id = await attachment_repo.create(brief_id, file_id, current_user.id)
+        
+        return {
+            "attachment_id": attachment_id,
+            "brief_id": brief_id,
+            "file_id": file_id,
+            "message": "File attached successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Attach file failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to attach file: {str(e)}")
+
+
+@router.get("/document-briefs/{brief_id}/attachments")
+async def list_brief_attachments(
+    brief_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Database = Depends(get_database)
+):
+    """
+    List all files attached to a document brief.
+    
+    Returns file metadata for all attached knowledge files.
+    
+    Security:
+    - User must be authenticated
+    - User must own the brief
+    """
+    try:
+        brief_repo = DocumentBriefRepository(db)
+        attachment_repo = BriefAttachmentRepository(db)
+        
+        # Verify brief ownership
+        brief = await brief_repo.get_by_id(brief_id, current_user.id)
+        if not brief:
+            raise HTTPException(status_code=404, detail="Document brief not found")
+        
+        # Get attached files
+        files = await attachment_repo.get_by_brief_id(brief_id, current_user.id)
+        
+        return {
+            "brief_id": brief_id,
+            "files": files,
+            "total": len(files)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"List attachments failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list attachments: {str(e)}")
+
+
+@router.delete("/document-briefs/{brief_id}/attachments/{file_id}")
+async def remove_attachment(
+    brief_id: str,
+    file_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Database = Depends(get_database)
+):
+    """
+    Remove a file attachment from a document brief.
+    
+    This only removes the link between the brief and file.
+    The file itself remains in the knowledge base.
+    
+    Security:
+    - User must be authenticated
+    - User must own the brief
+    """
+    try:
+        brief_repo = DocumentBriefRepository(db)
+        attachment_repo = BriefAttachmentRepository(db)
+        
+        # Verify brief ownership
+        brief = await brief_repo.get_by_id(brief_id, current_user.id)
+        if not brief:
+            raise HTTPException(status_code=404, detail="Document brief not found")
+        
+        # Delete attachment
+        deleted = await attachment_repo.delete(brief_id, file_id, current_user.id)
+        
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Attachment not found")
+        
+        return {"message": "Attachment removed successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Remove attachment failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to remove attachment: {str(e)}")

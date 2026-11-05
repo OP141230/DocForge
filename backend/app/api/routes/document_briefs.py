@@ -18,6 +18,8 @@ from app.core.auth import get_current_user
 from app.repositories.document_brief_repository import DocumentBriefRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.conversation_repository import ConversationRepository
+from app.repositories.brief_attachment_repository import BriefAttachmentRepository
+from app.services.retrieval_service import get_retrieval_service
 from app.providers.factory import get_provider
 
 
@@ -269,6 +271,7 @@ async def generate_document(
         db = await get_database()
         brief_repo = DocumentBriefRepository(db)
         doc_repo = DocumentRepository(db)
+        attachment_repo = BriefAttachmentRepository(db)
         
         # Get brief
         brief = await brief_repo.get_by_id(brief_id, user_id=current_user.id)
@@ -294,10 +297,37 @@ async def generate_document(
             additional_instructions=brief.additional_instructions,
         )
         
+        # Check if files are attached to the brief
+        attached_files = await attachment_repo.get_by_brief_id(brief_id, current_user.id)
+        
         # Generate document using AI provider
         provider = get_provider()
         outline_response = OutlineResponse(outline=brief.outline)
-        document = await provider.generate_content(outline_response, requirements)
+        
+        if attached_files:
+            # Generate with sources
+            # Build search query from brief
+            search_query = f"{brief.title} {brief.topic}"
+            if brief.purpose:
+                search_query += f" {brief.purpose}"
+            
+            # Retrieve relevant chunks (top 5)
+            retrieval_service = get_retrieval_service(db)
+            source_chunks = await retrieval_service.search(
+                query=search_query,
+                user_id=current_user.id,
+                limit=5
+            )
+            
+            # Generate document with sources
+            document = await provider.generate_content_with_sources(
+                outline_response,
+                requirements,
+                source_chunks
+            )
+        else:
+            # Generate without sources (backward compatible)
+            document = await provider.generate_content(outline_response, requirements)
         
         # Inject brief_id into document metadata for bidirectional linking
         if not document.metadata.custom_fields:
