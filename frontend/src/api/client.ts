@@ -336,4 +336,70 @@ export const api = {
     if (!res.ok) throw new Error('Failed to generate document from brief');
     return res.json();
   },
+
+  // Knowledge Base
+  async uploadFile(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const res = await fetch(`${API_BASE}/knowledge/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.detail || 'Failed to upload file');
+    }
+    return res.json();
+  },
+
+  async getFiles(page = 1, page_size = 20) {
+    const res = await fetch(`${API_BASE}/knowledge/files?page=${page}&page_size=${page_size}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to get files');
+    return res.json();
+  },
+
+  async getFile(id: string) {
+    const res = await fetch(`${API_BASE}/knowledge/files/${id}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('File not found');
+    return res.json();
+  },
+
+  async deleteFile(id: string) {
+    const res = await fetch(`${API_BASE}/knowledge/files/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete file');
+  },
+
+  async extractAndChunk(fileId: string) {
+    const res = await fetch(`${API_BASE}/knowledge/files/${fileId}/extract`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to extract and chunk file');
+    return res.json();
+  },
+
+  async searchContent(query: string, limit = 10) {
+    const res = await fetch(`${API_BASE}/knowledge/search?query=${encodeURIComponent(query)}&limit=${limit}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to search content');
+    return res.json();
+  },
+
+  async getFileContent(fileId: string) {
+    const res = await fetch(`${API_BASE}/knowledge/files/${fileId}/content`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to get file content');
+    return res.json();
+  },
 };

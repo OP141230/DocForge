@@ -138,7 +138,7 @@ export default function DashboardPage() {
         )}
 
         {/* Tabs */}
-        <div className="mb-6 flex space-x-1 bg-white rounded-lg shadow-md p-1 max-w-2xl">
+        <div className="mb-6 flex space-x-1 bg-white rounded-lg shadow-md p-1 max-w-3xl">
           <button
             onClick={() => setActiveTab('conversations')}
             className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
@@ -168,6 +168,12 @@ export default function DashboardPage() {
             }`}
           >
             📋 Briefs
+          </button>
+          <button
+            onClick={() => navigate('/knowledge')}
+            className="flex-1 px-4 py-2 rounded-md font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            📚 Knowledge
           </button>
         </div>
 
