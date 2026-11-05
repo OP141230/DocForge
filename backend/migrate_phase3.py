@@ -6,7 +6,13 @@ import os
 
 async def migrate_phase3():
     """Migrate database to Phase 3 schema."""
-    db_path = "./docforge.db"
+    # Support running from project root or backend directory
+    if os.path.exists("./docforge.db"):
+        db_path = "./docforge.db"
+    elif os.path.exists("./backend/docforge.db"):
+        db_path = "./backend/docforge.db"
+    else:
+        db_path = "./docforge.db"
     
     if not os.path.exists(db_path):
         print("No existing database found. Run the application first to create initial schema.")

@@ -289,9 +289,11 @@ export function DocumentBriefWizard({
           </div>
           <button
             onClick={onCancel}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+            title="Close"
+            aria-label="Close wizard"
           >
-            <X className="w-6 h-6 text-gray-500" />
+            <X className="w-6 h-6 text-gray-600 hover:text-gray-900" />
           </button>
         </div>
 
@@ -371,14 +373,22 @@ export function DocumentBriefWizard({
 
         {/* Footer Navigation */}
         <div className="flex items-center justify-between p-6 border-t bg-gray-50">
-          <button
-            onClick={handlePrevious}
-            disabled={currentStep === 1}
-            className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="w-5 h-5" />
-            Previous
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              Previous
+            </button>
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
 
           <div className="text-sm text-gray-600">Step {currentStep} of 6</div>
 
