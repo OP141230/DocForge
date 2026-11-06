@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { Image, X } from 'lucide-react'
 import { api } from '../api/client'
 import { Conversation, Message } from '../types/conversation'
 import { DocumentRequirements } from '../types/document'
@@ -16,6 +17,9 @@ export default function ConversationPage() {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
   const [showConfigModal, setShowConfigModal] = useState(false)
+  const [attachedImages, setAttachedImages] = useState<File[]>([])
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -96,6 +100,61 @@ export default function ConversationPage() {
       handleSendMessage()
     }
   }
+
+  // Image handling functions
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault()
+        const file = items[i].getAsFile()
+        if (file) {
+          addImageFile(file)
+        }
+      }
+    }
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+
+    Array.from(files).forEach(file => {
+      if (file.type.startsWith('image/')) {
+        addImageFile(file)
+      }
+    })
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const addImageFile = (file: File) => {
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file)
+    
+    setAttachedImages(prev => [...prev, file])
+    setImagePreviewUrls(prev => [...prev, previewUrl])
+  }
+
+  const removeImage = (index: number) => {
+    // Revoke object URL to prevent memory leak
+    URL.revokeObjectURL(imagePreviewUrls[index])
+    
+    setAttachedImages(prev => prev.filter((_, i) => i !== index))
+    setImagePreviewUrls(prev => prev.filter((_, i) => i !== index))
+  }
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
+    }
+  }, [])
 
   const handleUpdateTitle = async () => {
     if (!id || !editedTitle.trim() || editedTitle === conversation?.title) {
@@ -272,12 +331,55 @@ export default function ConversationPage() {
       {/* Input Area */}
       <div className="bg-white border-t border-gray-200 px-4 py-4">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-end space-x-4">
+          {/* Image Previews */}
+          {attachedImages.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {imagePreviewUrls.map((url, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={url}
+                    alt={`Preview ${index + 1}`}
+                    className="h-20 w-20 object-cover rounded-lg border border-gray-300"
+                  />
+                  <button
+                    onClick={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove image"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-end space-x-2">
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {/* Image attachment button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              title="Attach image"
+              disabled={loading}
+            >
+              <Image className="w-5 h-5" />
+            </button>
+
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
+              onPaste={handlePaste}
+              placeholder="Type your message or paste an image... (Press Enter to send, Shift+Enter for new line)"
               className="flex-1 resize-none border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               rows={3}
               disabled={loading}
@@ -291,7 +393,7 @@ export default function ConversationPage() {
             </button>
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Press Enter to send • Shift + Enter for new line
+            Press Enter to send • Shift + Enter for new line • Paste images directly (Ctrl+V)
           </p>
         </div>
       </div>
