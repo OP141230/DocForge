@@ -34,6 +34,17 @@ DocForge is an all-round documentation agent that helps you plan, generate, rese
 - 🗂️ **Brief Manager**: View, resume, and manage all your document briefs
 - 🔗 **Brief-Document Linking**: Full traceability from planning to generated content
 
+### Phase 4 (Complete ✅)
+- 📂 **Knowledge Base**: Upload and manage reference documents
+- 📄 **Multi-Format Support**: PDF, DOCX, TXT, Markdown, HTML, CSV extraction
+- 🔍 **Full-Text Search**: FTS5-powered search across uploaded files
+- 🧩 **Smart Chunking**: Automatic text chunking with overlap for better retrieval
+- 🔗 **Source Attachments**: Link reference files to document briefs
+- 🤖 **Source-Based Generation**: AI uses your uploaded documents as references
+- 📝 **Source Citations**: Generated content references source files
+- 🔐 **Secure Storage**: User-isolated file storage with deduplication
+- 🎯 **RAG Implementation**: Retrieval-Augmented Generation with your own knowledge
+
 ## Tech Stack
 
 **Frontend**:
@@ -117,7 +128,19 @@ cd backend
 python migrate_phase3.py
 ```
 
-### 7. Run the Application
+### 7. Run Phase 4 Migration (Knowledge Base)
+
+```powershell
+python migrate_phase4.py
+```
+
+### 8. Install Phase 4 Dependencies
+
+```powershell
+pip install pypdf2 beautifulsoup4 lxml
+```
+
+### 9. Run the Application
 
 **Using Startup Script (Easiest with Groq):**
 ```powershell
@@ -306,7 +329,10 @@ See `.kiro/steering/docforge-engineering-guide.md` for development guidelines an
 - **Phase 1**: Core platform and generation ✅
 - **Phase 2**: Authentication and personal workspace ✅
 - **Phase 3**: DocumentBrief planning system ✅
-- **Phase 4** (Planned): Templates, analytics, advanced collaboration
+- **Phase 4**: Knowledge Base & Source Ingestion ✅
+- **Phase 5** (Planned): Research, Citations & Factual Verification
+- **Phase 6** (Planned): Vector Search & Semantic Retrieval
+- **Phase 7** (Planned): Production scaling & Cloud deployment
 
 ---
 
@@ -434,7 +460,8 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - ✅ **Phase 1**: Document generation and export (Complete)
 - ✅ **Phase 2**: Authentication and personal workspace (Complete)
 - ✅ **Phase 3**: DocumentBrief planning system (Complete)
-- 🔜 **Phase 4**: Advanced features (planned)
+- ✅ **Phase 4**: Knowledge Base & Source Ingestion (Complete)
+- 🔜 **Phase 5**: Research, Citations & Factual Verification (Planned)
 
 ## Contributing
 

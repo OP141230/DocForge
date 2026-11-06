@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "DocForge"
     APP_VERSION: str = "1.0.0"
     
+    # Phase 4: Knowledge Base Configuration
+    UPLOAD_MAX_SIZE_MB: int = 50
+    UPLOAD_STORAGE_PATH: str = "./uploads"
+    UPLOAD_ALLOWED_EXTENSIONS: str = "pdf,docx,txt,md,html,csv"
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 200
+    
     model_config = SettingsConfigDict(
         env_file=str(_env_file),
         case_sensitive=True,
