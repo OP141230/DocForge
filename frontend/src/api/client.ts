@@ -431,4 +431,259 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to detach file from brief');
   },
+
+  // ============================================================
+  // Phase 5: Research, Citations, and Verification
+  // ============================================================
+
+  // Research Provider Status
+  async getResearchProviders() {
+    const res = await fetch(`${API_BASE}/research/providers`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to get research provider status');
+    return res.json();
+  },
+
+  // Research Sessions
+  async createResearchSession(data: any) {
+    const res = await fetch(`${API_BASE}/research/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.detail || 'Failed to create research session');
+    }
+    return res.json();
+  },
+
+  async listResearchSessions(limit = 20, offset = 0) {
+    const res = await fetch(`${API_BASE}/research/sessions?limit=${limit}&offset=${offset}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to list research sessions');
+    return res.json();
+  },
+
+  async getResearchSession(sessionId: string) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Research session not found');
+    return res.json();
+  },
+
+  async updateResearchSession(sessionId: string, data: any) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update research session');
+    return res.json();
+  },
+
+  async deleteResearchSession(sessionId: string) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete research session');
+  },
+
+  async linkDocumentToSession(sessionId: string, documentId: string) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}/document/${documentId}`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to link document to session');
+    return res.json();
+  },
+
+  // Research Questions
+  async planResearchQuestions(sessionId: string) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}/plan`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to plan research questions');
+    return res.json();
+  },
+
+  async updateResearchQuestions(sessionId: string, questions: Array<{ question_text: string }>) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}/questions`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ questions }),
+    });
+    if (!res.ok) throw new Error('Failed to update research questions');
+    return res.json();
+  },
+
+  // Run Research
+  async runResearch(sessionId: string, wait = false) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}/run?wait=${wait}`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to run research');
+    return res.json();
+  },
+
+  // Research Sources
+  async listResearchSources(sessionId: string, selectedOnly = false) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}/sources?selected_only=${selectedOnly}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to list research sources');
+    return res.json();
+  },
+
+  async getResearchSource(sourceId: string) {
+    const res = await fetch(`${API_BASE}/research/sources/${sourceId}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Source not found');
+    return res.json();
+  },
+
+  async updateResearchSource(sourceId: string, data: { selected: boolean }) {
+    const res = await fetch(`${API_BASE}/research/sources/${sourceId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update source');
+    return res.json();
+  },
+
+  // Research Evidence
+  async listResearchEvidence(sessionId: string, selectedOnly = false) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}/evidence?selected_only=${selectedOnly}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to list research evidence');
+    return res.json();
+  },
+
+  async createResearchEvidence(sessionId: string, data: any) {
+    const res = await fetch(`${API_BASE}/research/sessions/${sessionId}/evidence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.detail || 'Failed to create evidence');
+    }
+    return res.json();
+  },
+
+  async updateResearchEvidence(evidenceId: string, data: any) {
+    const res = await fetch(`${API_BASE}/research/evidence/${evidenceId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update evidence');
+    return res.json();
+  },
+
+  async deleteResearchEvidence(evidenceId: string) {
+    const res = await fetch(`${API_BASE}/research/evidence/${evidenceId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete evidence');
+  },
+
+  // Citations
+  async getDocumentCitations(documentId: string, style?: string) {
+    const url = style
+      ? `${API_BASE}/documents/${documentId}/citations?style=${style}`
+      : `${API_BASE}/documents/${documentId}/citations`;
+    const res = await fetch(url, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to get citations');
+    return res.json();
+  },
+
+  async changeCitationStyle(documentId: string, style: string) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/citation-style`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ style }),
+    });
+    if (!res.ok) throw new Error('Failed to change citation style');
+    return res.json();
+  },
+
+  async deleteCitation(citationId: string) {
+    const res = await fetch(`${API_BASE}/citations/${citationId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to delete citation');
+  },
+
+  // Verification
+  async verifyDocument(documentId: string, data?: any) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data || {}),
+    });
+    if (!res.ok) throw new Error('Failed to verify document');
+    return res.json();
+  },
+
+  async getDocumentVerifications(documentId: string, statusFilter?: string) {
+    const url = statusFilter
+      ? `${API_BASE}/documents/${documentId}/verifications?status=${statusFilter}`
+      : `${API_BASE}/documents/${documentId}/verifications`;
+    const res = await fetch(url, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to get verifications');
+    return res.json();
+  },
+
+  async updateVerification(verificationId: string, data: any) {
+    const res = await fetch(`${API_BASE}/verifications/${verificationId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to update verification');
+    return res.json();
+  },
+
+  async recheckVerification(verificationId: string) {
+    const res = await fetch(`${API_BASE}/verifications/${verificationId}/recheck`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to recheck verification');
+    return res.json();
+  },
+
+  async getVerificationStatusLabels() {
+    const res = await fetch(`${API_BASE}/research/status-labels`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to get status labels');
+    return res.json();
+  },
 };

@@ -1,6 +1,6 @@
 """Abstract AI provider interface."""
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Any, Dict, List, Optional
 
 from app.models.document_ir import DocumentIR, Section
 from app.models.generation import DocumentRequirements, OutlineResponse
@@ -54,3 +54,46 @@ class AIProvider(ABC):
             Section with generated content
         """
         pass
+
+    # ------------------------------------------------------------------
+    # Optional Phase 4/5 capabilities
+    # ------------------------------------------------------------------
+    # These are concrete (not abstract) on purpose: Phase 1's providers must keep
+    # working unchanged, so a provider that cannot use sources simply falls back
+    # to plain generation.
+
+    async def generate_content_with_sources(
+        self,
+        outline: OutlineResponse,
+        requirements: DocumentRequirements,
+        sources: List[Dict],
+        evidence: Optional[List[Dict]] = None,
+        citation_style: Optional[str] = None,
+    ) -> DocumentIR:
+        """Generate content using retrieved source material.
+
+        ``sources`` are Phase 4 knowledge-base chunks; ``evidence`` are Phase 5
+        evidence passages, each with a ``marker`` such as ``E1``. Providers that
+        do not implement grounding should ignore both and warn the caller via
+        metadata rather than inventing citations.
+        """
+        document = await self.generate_content(outline, requirements)
+        if not document.metadata.custom_fields:
+            document.metadata.custom_fields = {}
+        document.metadata.custom_fields["generation_note"] = (
+            "This provider does not support source-grounded generation; no citations were produced."
+        )
+        return document
+
+    async def assess_claim(
+        self,
+        claim: str,
+        passages: List[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """Judge whether ``passages`` support or contradict ``claim``.
+
+        Returns ``None`` when the provider cannot assess claims. The verification
+        service then reports *Insufficient Evidence* rather than assuming
+        support - an LLM's silence is not evidence either way.
+        """
+        return None

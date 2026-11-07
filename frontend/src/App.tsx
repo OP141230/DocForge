@@ -8,6 +8,7 @@ import DocumentPage from './pages/DocumentPage'
 import ConversationPage from './pages/ConversationPage'
 import DocumentBriefManager from './components/DocumentBriefManager'
 import KnowledgeBasePage from './pages/KnowledgeBasePage'
+import ResearchPage from './pages/ResearchPage'
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
             <Route path="/conversation/:id" element={<ConversationPage />} />
             <Route path="/briefs" element={<DocumentBriefManager />} />
             <Route path="/knowledge" element={<KnowledgeBasePage />} />
+            <Route path="/research" element={<ResearchPage />} />
           </Route>
           
           <Route path="*" element={<Navigate to="/" replace />} />

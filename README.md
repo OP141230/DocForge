@@ -45,6 +45,20 @@ DocForge is an all-round documentation agent that helps you plan, generate, rese
 - 🔐 **Secure Storage**: User-isolated file storage with deduplication
 - 🎯 **RAG Implementation**: Retrieval-Augmented Generation with your own knowledge
 
+### Phase 5 (Complete ✅)
+- 🔬 **Research System**: 5 external providers (Wikipedia, arXiv, PubMed, Google Scholar, Web Search)
+- 📚 **Research Sessions**: Create, configure, and manage research sessions
+- ❓ **Question Planning**: Auto-generate research questions from briefs or add manually
+- 📖 **Source Management**: Browse and select sources from providers and knowledge base
+- 📝 **Evidence Collection**: Extract and manage evidence passages from sources
+- 📎 **Citation Management**: 4 citation styles (APA, IEEE, MLA, Chicago) with auto-formatting
+- 📋 **Reference Lists**: Generate formatted reference lists and in-text citations
+- 🔄 **Style Switching**: Instantly reformat all citations to different styles
+- ✅ **Factual Verification**: Extract claims and verify against research evidence
+- 🎯 **Claim Review**: Flag claims for review, add notes, and recheck verification
+- 🔒 **SSRF Protection**: URL validation and private IP blocking
+- ⚡ **Rate Limiting**: Configurable per-user API rate limits
+
 ## Tech Stack
 
 **Frontend**:
@@ -140,7 +154,13 @@ python migrate_phase4.py
 pip install pypdf2 beautifulsoup4 lxml
 ```
 
-### 9. Run the Application
+### 9. Run Phase 5 Migration (Research, Citations & Verification)
+
+```powershell
+python migrate_phase5.py
+```
+
+### 10. Run the Application
 
 **Using Startup Script (Easiest with Groq):**
 ```powershell
@@ -330,8 +350,8 @@ See `.kiro/steering/docforge-engineering-guide.md` for development guidelines an
 - **Phase 2**: Authentication and personal workspace ✅
 - **Phase 3**: DocumentBrief planning system ✅
 - **Phase 4**: Knowledge Base & Source Ingestion ✅
-- **Phase 5** (Planned): Research, Citations & Factual Verification
-- **Phase 6** (Planned): Vector Search & Semantic Retrieval
+- **Phase 5**: Research, Citations & Factual Verification ✅
+- **Phase 6** (Planned): Advanced Analytics & Insights
 - **Phase 7** (Planned): Production scaling & Cloud deployment
 
 ---
@@ -422,6 +442,23 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - `POST /api/document-briefs/{id}/generate-document` - Generate document from brief
 - `PATCH /api/document-briefs/{id}/conversation` - Link brief to conversation
 
+### Research & Citations (Protected - Phase 5)
+- `GET /api/research/providers` - Check provider availability
+- `POST /api/research/sessions` - Create research session
+- `GET /api/research/sessions` - List sessions
+- `GET /api/research/sessions/{id}` - Get session detail
+- `PATCH /api/research/sessions/{id}` - Update session
+- `DELETE /api/research/sessions/{id}` - Delete session
+- `POST /api/research/sessions/{id}/plan` - Auto-generate questions
+- `PUT /api/research/sessions/{id}/questions` - Update questions
+- `POST /api/research/sessions/{id}/run` - Run research (async)
+- `GET /api/research/sessions/{id}/sources` - List sources
+- `GET /api/research/sessions/{id}/evidence` - List evidence
+- `GET /api/documents/{id}/citations` - Get citations & references
+- `PATCH /api/documents/{id}/citation-style` - Change citation style
+- `POST /api/documents/{id}/verify` - Verify document claims
+- `GET /api/documents/{id}/verifications` - Get verifications
+
 ### Documents (Protected)
 - `POST /api/documents` - Create document
 - `GET /api/documents` - List documents
@@ -444,6 +481,15 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - **documents** - Generated documents with user and conversation associations
 - **document_versions** - Version history for documents
 - **document_briefs** (Phase 3) - Document planning briefs with outlines and approval workflow
+- **knowledge_files** (Phase 4) - Uploaded reference documents
+- **content_chunks** (Phase 4) - Text chunks for semantic search
+- **research_sessions** (Phase 5) - Research session metadata
+- **research_questions** (Phase 5) - Questions guiding research
+- **research_sources** (Phase 5) - Sources from providers and knowledge base
+- **research_evidence** (Phase 5) - Extracted evidence passages
+- **citations** (Phase 5) - In-text citations with formatting
+- **claim_verifications** (Phase 5) - Factual claim verification results
+- **claim_verification_evidence** (Phase 5) - Evidence-to-claim links
 
 ## Security Features
 
@@ -461,7 +507,7 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - ✅ **Phase 2**: Authentication and personal workspace (Complete)
 - ✅ **Phase 3**: DocumentBrief planning system (Complete)
 - ✅ **Phase 4**: Knowledge Base & Source Ingestion (Complete)
-- 🔜 **Phase 5**: Research, Citations & Factual Verification (Planned)
+- ✅ **Phase 5**: Research, Citations & Factual Verification (Complete)
 
 ## Contributing
 

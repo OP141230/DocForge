@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MessageSquare, FileText, ClipboardList, Library, Plus, Trash2 } from 'lucide-react'
+import { MessageSquare, FileText, ClipboardList, Library, Plus, Trash2, Search } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../api/client'
 import { DocumentIR } from '../types/document'
@@ -179,6 +179,13 @@ export default function DashboardPage() {
           >
             <Library className="w-4 h-4" />
             <span>Knowledge</span>
+          </button>
+          <button
+            onClick={() => navigate('/research')}
+            className="flex-1 px-4 py-2 rounded-md font-medium text-gray-700 hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+          >
+            <Search className="w-4 h-4" />
+            <span>Research</span>
           </button>
         </div>
 

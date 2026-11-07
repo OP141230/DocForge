@@ -21,7 +21,8 @@ class RetrievalService:
         self,
         query: str,
         user_id: str,
-        limit: int = 5
+        limit: int = 5,
+        file_ids: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Search knowledge base using FTS5 full-text search with BM25 ranking.
@@ -30,6 +31,8 @@ class RetrievalService:
             query: Search query
             user_id: User ID (for authorization)
             limit: Maximum number of results (default 5)
+            file_ids: Optional allow-list of knowledge file IDs (Phase 5 lets a
+                research session restrict itself to selected files)
             
         Returns:
             List of search results with chunk data and source metadata
@@ -39,7 +42,7 @@ class RetrievalService:
         
         try:
             # Search chunks
-            chunk_results = await self.chunk_repo.search(query, user_id, limit)
+            chunk_results = await self.chunk_repo.search(query, user_id, limit, file_ids)
             
             if not chunk_results:
                 return []

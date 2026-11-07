@@ -19,6 +19,12 @@ from app.repositories.document_brief_repository import DocumentBriefRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.conversation_repository import ConversationRepository
 from app.repositories.brief_attachment_repository import BriefAttachmentRepository
+from app.repositories.evidence_repository import EvidenceRepository
+from app.repositories.research_repository import ResearchRepository
+from app.repositories.research_source_repository import ResearchSourceRepository
+from app.models.research import GenerateFromBriefRequest, RetrievalStatus
+from app.services.citation_service import CitationService
+from app.services.citations import normalize_style
 from app.services.retrieval_service import get_retrieval_service
 from app.providers.factory import get_provider
 
@@ -264,9 +270,15 @@ async def approve_outline(
 @router.post("/document-briefs/{brief_id}/generate", response_model=DocumentIR)
 async def generate_document(
     brief_id: str,
+    body: Optional[GenerateFromBriefRequest] = None,
     current_user: User = Depends(get_current_user)
 ):
-    """Generate full document from approved brief (requires authentication and ownership)."""
+    """Generate full document from approved brief (requires authentication and ownership).
+
+    Phase 5 adds an optional body: ``{"research_session_id": "...",
+    "citation_style": "apa", "use_research": true}``. Omitting the body keeps the
+    exact Phase 3/4 behaviour, including knowledge-base-only generation.
+    """
     try:
         db = await get_database()
         brief_repo = DocumentBriefRepository(db)
@@ -299,31 +311,80 @@ async def generate_document(
         
         # Check if files are attached to the brief
         attached_files = await attachment_repo.get_by_brief_id(brief_id, current_user.id)
-        
+
+        # --- Phase 5: resolve the research session (optional) ---------------
+        research_session = None
+        evidence_items = []
+        citation_style = body.citation_style if body and body.citation_style else None
+        use_research = bool(body.use_research) if body else False
+
+        if body and body.research_session_id:
+            research_session = await ResearchRepository(db).get_session(
+                body.research_session_id, current_user.id
+            )
+            if not research_session:
+                raise HTTPException(status_code=404, detail="Research session not found")
+            use_research = True
+        elif use_research:
+            research_session = await ResearchRepository(db).get_latest_for_brief(
+                brief_id, current_user.id
+            )
+
+        if research_session and use_research:
+            citation_style = citation_style or research_session.citation_style
+            selected_sources = {
+                source.id: source
+                for source in await ResearchSourceRepository(db).list_by_session(
+                    research_session.id, current_user.id, selected_only=True
+                )
+            }
+            records = await EvidenceRepository(db).list_by_session(
+                research_session.id, current_user.id, selected_only=True
+            )
+            for record in records:
+                source = selected_sources.get(record.source_id)
+                if source and source.retrieval_status == RetrievalStatus.FETCHED:
+                    evidence_items.append((record, source))
+
         # Generate document using AI provider
         provider = get_provider()
         outline_response = OutlineResponse(outline=brief.outline)
         
-        if attached_files:
-            # Generate with sources
+        if attached_files or evidence_items:
             # Build search query from brief
             search_query = f"{brief.title} {brief.topic}"
             if brief.purpose:
                 search_query += f" {brief.purpose}"
             
-            # Retrieve relevant chunks (top 5)
+            # Retrieve relevant chunks, restricted to the files attached to this
+            # brief (Phase 4 previously searched every file the user owned).
             retrieval_service = get_retrieval_service(db)
-            source_chunks = await retrieval_service.search(
-                query=search_query,
-                user_id=current_user.id,
-                limit=5
-            )
-            
-            # Generate document with sources
+            source_chunks = []
+            if attached_files:
+                source_chunks = await retrieval_service.search(
+                    query=search_query,
+                    user_id=current_user.id,
+                    limit=5,
+                    file_ids=[file.id for file in attached_files],
+                )
+
+            evidence_payload = [
+                {
+                    "marker": f"E{index}",
+                    "title": source.title,
+                    "url": source.url,
+                    "text": record.passage,
+                }
+                for index, (record, source) in enumerate(evidence_items, 1)
+            ]
+
+            # Generate document with sources and (optionally) research evidence
             document = await provider.generate_content_with_sources(
                 outline_response,
                 requirements,
-                source_chunks
+                source_chunks,
+                evidence=evidence_payload or None,
+                citation_style=str(citation_style.value if hasattr(citation_style, 'value') else citation_style or 'apa'),
             )
         else:
             # Generate without sources (backward compatible)
@@ -333,6 +394,8 @@ async def generate_document(
         if not document.metadata.custom_fields:
             document.metadata.custom_fields = {}
         document.metadata.custom_fields['brief_id'] = brief_id
+        if research_session:
+            document.metadata.custom_fields['research_session_id'] = research_session.id
         
         # Save document
         created_doc = await doc_repo.create(
@@ -340,6 +403,25 @@ async def generate_document(
             user_id=current_user.id,
             conversation_id=brief.conversation_id
         )
+
+        # --- Phase 5: turn model markers into real, linked citations --------
+        if evidence_items:
+            try:
+                style = normalize_style(citation_style or "apa")
+            except ValueError:
+                style = normalize_style("apa")
+            citation_service = CitationService(db)
+            marker_result = await citation_service.apply_evidence_markers(
+                created_doc, created_doc.id, current_user.id, evidence_items, style=style
+            )
+            created_doc.metadata.custom_fields['citations_created'] = marker_result.citations_created
+            created_doc.metadata.custom_fields['unresolved_markers_removed'] = marker_result.markers_removed
+            await doc_repo.update(created_doc)
+
+        if research_session:
+            await ResearchRepository(db).update_session(
+                research_session.id, current_user.id, {"document_id": created_doc.id}
+            )
         
         # Link document to brief
         await brief_repo.update(

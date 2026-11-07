@@ -41,6 +41,27 @@ class Settings(BaseSettings):
     UPLOAD_ALLOWED_EXTENSIONS: str = "pdf,docx,txt,md,html,csv"
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
+
+    # Phase 5: Research configuration
+    # 'none' = no external web search (knowledge base + user URLs still work)
+    RESEARCH_PROVIDER: str = "none"
+    TAVILY_API_KEY: str = ""
+    SEARXNG_BASE_URL: str = ""
+    RESEARCH_MAX_QUESTIONS: int = 6
+    RESEARCH_RESULTS_PER_QUESTION: int = 5
+    RESEARCH_MAX_SOURCES: int = 20
+    RESEARCH_MAX_USER_URLS: int = 10
+    RESEARCH_FETCH_TIMEOUT_SECONDS: int = 12
+    RESEARCH_MAX_PAGE_BYTES: int = 2_000_000
+    RESEARCH_MAX_REDIRECTS: int = 3
+    RESEARCH_MIN_PASSAGE_CHARS: int = 120
+    RESEARCH_REQUEST_LIMIT_PER_MINUTE: int = 10
+
+    # Phase 5: Citations & verification
+    CITATION_DEFAULT_STYLE: str = "apa"
+    VERIFICATION_MAX_CLAIMS: int = 40
+    VERIFICATION_MIN_LEXICAL_OVERLAP: float = 0.18
+    VERIFICATION_REQUEST_LIMIT_PER_MINUTE: int = 10
     
     model_config = SettingsConfigDict(
         env_file=str(_env_file),

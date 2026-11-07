@@ -1,10 +1,29 @@
 """Repository for content chunk operations with FTS5 search."""
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import json
+import re
 
 from app.core.database import Database
 from app.models.knowledge import ContentChunk
+
+
+def _to_fts_query(query: str, max_tokens: int = 24) -> Optional[str]:
+    """Convert free text into a safe FTS5 MATCH expression."""
+    tokens = re.findall(r"[A-Za-z0-9_]+", query or "")
+    unique: List[str] = []
+    seen = set()
+    for token in tokens:
+        if len(token) < 2:
+            continue
+        lowered = token.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        unique.append(token)
+    if not unique:
+        return None
+    return " OR ".join(f'"{token}"' for token in unique[:max_tokens])
 
 
 class ContentChunkRepository:
@@ -89,7 +108,8 @@ class ContentChunkRepository:
         self,
         query: str,
         user_id: str,
-        limit: int = 5
+        limit: int = 5,
+        file_ids: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         """
         Full-text search on content chunks using FTS5 with BM25 ranking.
@@ -98,15 +118,35 @@ class ContentChunkRepository:
             query: Search query
             user_id: User ID (for authorization)
             limit: Maximum number of results
+            file_ids: Optional allow-list of knowledge file IDs. Used by Phase 5
+                so a research session only reads the files the user chose
+                instead of every file in their knowledge base.
             
         Returns:
             List of dictionaries with chunk data and relevance scores
         """
+        # FTS5 MATCH treats raw text as a query language: punctuation such as
+        # "?", "'" or "-" raises "fts5: syntax error". Research questions and
+        # user search boxes routinely contain those characters, so the query is
+        # reduced to quoted alphanumeric tokens joined with OR (BM25 still ranks
+        # the best matches first).
+        fts_query = _to_fts_query(query)
+        if not fts_query:
+            return []
+
+        parameters: List[Any] = [fts_query, user_id]
+        file_filter = ""
+        if file_ids:
+            placeholders = ",".join("?" for _ in file_ids)
+            file_filter = f" AND c.file_id IN ({placeholders})"
+            parameters.extend(file_ids)
+        parameters.append(limit)
+
         async with self.db.connection.cursor() as cursor:
             # Use FTS5 MATCH for full-text search with BM25 ranking
             # Join with main table to get metadata and enforce user scope
             await cursor.execute(
-                """
+                f"""
                 SELECT 
                     c.id,
                     c.file_id,
@@ -121,11 +161,11 @@ class ContentChunkRepository:
                     fts.rank as relevance_score
                 FROM content_chunks_fts fts
                 INNER JOIN content_chunks c ON fts.rowid = c.rowid
-                WHERE fts.chunk_text MATCH ? AND c.user_id = ?
+                WHERE fts.chunk_text MATCH ? AND c.user_id = ?{file_filter}
                 ORDER BY fts.rank
                 LIMIT ?
                 """,
-                (query, user_id, limit)
+                parameters
             )
             rows = await cursor.fetchall()
         

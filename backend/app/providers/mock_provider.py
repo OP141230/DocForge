@@ -1,7 +1,7 @@
 """Mock AI provider for testing and development."""
 import hashlib
 import json
-from typing import Dict
+from typing import Dict, List, Optional
 
 from app.models.document_ir import (
     DocumentIR,
@@ -134,6 +134,56 @@ class MockProvider(AIProvider):
             blocks=blocks,
         )
     
+    async def generate_content_with_sources(
+        self,
+        outline: OutlineResponse,
+        requirements: DocumentRequirements,
+        sources: List[Dict],
+        evidence: Optional[List[Dict]] = None,
+        citation_style: Optional[str] = None,
+    ) -> DocumentIR:
+        """Deterministic grounded generation for tests and offline development.
+
+        The mock cannot reason about content, so it does something deliberately
+        boring and honest: it reuses the normal template text and appends a
+        marker that points at real evidence rows. That exercises the citation
+        pipeline (marker -> source record -> in-text citation) without a network
+        call and without inventing an external source.
+        """
+        document = await self.generate_content(outline, requirements)
+
+        if not document.metadata.custom_fields:
+            document.metadata.custom_fields = {}
+        document.metadata.custom_fields["source_count"] = len(sources or [])
+        document.metadata.custom_fields["sources_used"] = [
+            source.get("original_filename", "uploaded document") for source in (sources or [])
+        ]
+        document.metadata.custom_fields["generation_provider"] = "mock"
+
+        if evidence and document.content:
+            markers = []
+            for index, item in enumerate(evidence, 1):
+                marker = item.get("marker") or f"E{index}"
+                markers.append(marker)
+
+            reference_note = " ".join(f"[{marker}]" for marker in markers[:3])
+            target = document.content[0]
+            target.blocks.append(
+                Paragraph(
+                    content=[
+                        InlineContent(
+                            text=(
+                                "Reference passages were retrieved for this section "
+                                f"{reference_note}."
+                            )
+                        )
+                    ]
+                )
+            )
+            document.metadata.custom_fields["evidence_markers_offered"] = markers
+
+        return document
+
     def _generate_paragraph_text(self, section: str, topic: str, seed: int) -> str:
         """Generate deterministic paragraph text."""
         templates = [

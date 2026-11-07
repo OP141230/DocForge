@@ -180,7 +180,7 @@ CREATE TABLE IF NOT EXISTS brief_file_attachments (
     file_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     attached_at TEXT NOT NULL,
-    FOREIGN KEY (brief_id) REFERENCES documents(id) ON DELETE CASCADE,
+    FOREIGN KEY (brief_id) REFERENCES document_briefs(id) ON DELETE CASCADE,
     FOREIGN KEY (file_id) REFERENCES knowledge_files(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     UNIQUE(brief_id, file_id)
@@ -188,3 +188,211 @@ CREATE TABLE IF NOT EXISTS brief_file_attachments (
 
 CREATE INDEX IF NOT EXISTS idx_brief_attachments_brief_id ON brief_file_attachments(brief_id);
 CREATE INDEX IF NOT EXISTS idx_brief_attachments_file_id ON brief_file_attachments(file_id);
+
+-- Phase 3: DocumentBrief planning system
+-- (also created by migrate_phase3.py; kept here so a brand-new database works
+-- without having to remember a migration step)
+CREATE TABLE IF NOT EXISTS document_briefs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    conversation_id TEXT,
+    document_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    topic TEXT NOT NULL,
+    purpose TEXT,
+    audience TEXT,
+    language TEXT DEFAULT 'en',
+    desired_length TEXT,
+    tone TEXT,
+    writing_style TEXT,
+    document_specific_data TEXT NOT NULL DEFAULT '{}',
+    required_sections TEXT NOT NULL DEFAULT '[]',
+    important_points TEXT NOT NULL DEFAULT '[]',
+    topics_to_avoid TEXT NOT NULL DEFAULT '[]',
+    additional_instructions TEXT,
+    citation_style TEXT,
+    outline TEXT,
+    outline_approved INTEGER DEFAULT 0,
+    outline_approved_at TEXT,
+    document_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_document_briefs_user_id ON document_briefs(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_document_briefs_conversation ON document_briefs(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_document_briefs_document ON document_briefs(document_id);
+
+-- ===========================================================================
+-- Phase 5: Research, Citations & Factual Verification
+-- ===========================================================================
+-- notes:
+--  * every table carries user_id so access control is enforced in SQL, not only
+--    in Python;
+--  * timestamps are ISO-8601 TEXT to match Phases 1-4;
+--  * child rows are deleted explicitly by the repositories because SQLite only
+--    enforces ON DELETE CASCADE when PRAGMA foreign_keys is enabled, and
+--    enabling it globally would change Phase 1-4 delete semantics.
+
+CREATE TABLE IF NOT EXISTS research_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    brief_id TEXT,
+    document_id TEXT,
+    title TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    external_research INTEGER NOT NULL DEFAULT 0,
+    include_knowledge_base INTEGER NOT NULL DEFAULT 1,
+    citation_style TEXT NOT NULL DEFAULT 'apa',
+    requested_urls TEXT NOT NULL DEFAULT '[]',
+    knowledge_file_ids TEXT NOT NULL DEFAULT '[]',
+    provider TEXT,
+    provider_message TEXT,
+    error TEXT,
+    progress_message TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    started_at TEXT,
+    completed_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (brief_id) REFERENCES document_briefs(id) ON DELETE SET NULL,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_research_sessions_user ON research_sessions(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_research_sessions_brief ON research_sessions(brief_id);
+CREATE INDEX IF NOT EXISTS idx_research_sessions_document ON research_sessions(document_id);
+
+CREATE TABLE IF NOT EXISTS research_questions (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    question TEXT NOT NULL,
+    rationale TEXT,
+    order_index INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES research_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_research_questions_session ON research_questions(session_id, order_index);
+
+CREATE TABLE IF NOT EXISTS research_sources (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    research_question_id TEXT,
+    source_type TEXT NOT NULL DEFAULT 'web',
+    retrieval_status TEXT NOT NULL DEFAULT 'discovered',
+    title TEXT NOT NULL,
+    url TEXT,
+    canonical_url TEXT,
+    publisher TEXT,
+    author TEXT,
+    published_date TEXT,
+    accessed_at TEXT,
+    content_text TEXT,
+    excerpt TEXT,
+    word_count INTEGER NOT NULL DEFAULT 0,
+    http_status INTEGER,
+    error TEXT,
+    source_type_label TEXT NOT NULL DEFAULT 'unknown',
+    evaluation_notes TEXT NOT NULL DEFAULT '[]',
+    relevance_score REAL,
+    knowledge_file_id TEXT,
+    chunk_id TEXT,
+    page_number INTEGER,
+    section_title TEXT,
+    selected INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    UNIQUE(session_id, canonical_url),
+    FOREIGN KEY (session_id) REFERENCES research_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (knowledge_file_id) REFERENCES knowledge_files(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_research_sources_session ON research_sources(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_research_sources_user ON research_sources(user_id);
+CREATE INDEX IF NOT EXISTS idx_research_sources_file ON research_sources(knowledge_file_id);
+
+CREATE TABLE IF NOT EXISTS research_evidence (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    research_question_id TEXT,
+    claim_or_finding TEXT NOT NULL,
+    passage TEXT NOT NULL,
+    passage_hash TEXT NOT NULL,
+    evidence_type TEXT NOT NULL DEFAULT 'context',
+    url TEXT,
+    knowledge_file_id TEXT,
+    page_number INTEGER,
+    section_title TEXT,
+    retrieved_at TEXT NOT NULL,
+    user_selected INTEGER NOT NULL DEFAULT 1,
+    notes TEXT,
+    UNIQUE(session_id, source_id, passage_hash),
+    FOREIGN KEY (session_id) REFERENCES research_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_id) REFERENCES research_sources(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_research_evidence_session ON research_evidence(session_id, retrieved_at);
+CREATE INDEX IF NOT EXISTS idx_research_evidence_source ON research_evidence(source_id);
+
+CREATE TABLE IF NOT EXISTS citations (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    research_session_id TEXT,
+    evidence_id TEXT,
+    section_id TEXT,
+    section_title TEXT,
+    marker TEXT,
+    locator TEXT,
+    style TEXT NOT NULL DEFAULT 'apa',
+    in_text TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+    FOREIGN KEY (source_id) REFERENCES research_sources(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_citations_document ON citations(document_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_citations_source ON citations(source_id);
+
+CREATE TABLE IF NOT EXISTS claim_verifications (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    research_session_id TEXT,
+    claim_id TEXT NOT NULL,
+    claim_text TEXT NOT NULL,
+    section_id TEXT,
+    section_title TEXT,
+    status TEXT NOT NULL DEFAULT 'not_checked',
+    explanation TEXT,
+    verification_method TEXT NOT NULL DEFAULT 'deterministic',
+    time_sensitive INTEGER NOT NULL DEFAULT 0,
+    manual_review INTEGER NOT NULL DEFAULT 0,
+    checked_at TEXT,
+    UNIQUE(document_id, claim_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_claim_verifications_document ON claim_verifications(document_id, status);
+
+CREATE TABLE IF NOT EXISTS claim_verification_evidence (
+    verification_id TEXT NOT NULL,
+    evidence_id TEXT NOT NULL,
+    relation TEXT NOT NULL DEFAULT 'supporting',
+    PRIMARY KEY (verification_id, evidence_id, relation),
+    FOREIGN KEY (verification_id) REFERENCES claim_verifications(id) ON DELETE CASCADE,
+    FOREIGN KEY (evidence_id) REFERENCES research_evidence(id) ON DELETE CASCADE
+);
