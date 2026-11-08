@@ -71,6 +71,18 @@ DocForge is an all-round documentation agent that helps you plan, generate, rese
 - 📊 **Brief Compliance**: requirements from the DocumentBrief checked deterministically, with qualitative points clearly labelled as AI opinions
 - 🕘 **Version History**: side-by-side comparison, provenance for each version, and undoable restores
 
+### Phase 7 (Backend Complete ✅)
+- 📐 **Document Templates**: 12 professional templates across 6 categories (academic, technical, business, documentation, project, general)
+- 🎨 **Advanced Formatting**: Colors, font sizes, font families, strikethrough, background colors
+- 🖼️ **Image Support**: Upload, store, optimize, and embed images in documents with captions and alignment
+- 📄 **Page Layout**: Configure page size (A4, Letter, Legal), orientation, margins, headers/footers
+- 🔄 **Page Breaks**: Insert page breaks for print formatting
+- 📤 **Enhanced Exports**: All 5 exporters (PDF, DOCX, HTML, Markdown, Text) support Phase 7 features
+- 📋 **Template System**: Pre-configured typography, heading styles, and color schemes
+- 📊 **Export History**: Track all document exports with configuration and metadata
+- 🎯 **Template Application**: Apply professional templates to existing documents
+- 🔧 **Document IR v1.1.0**: Extended intermediate representation with backward compatibility
+
 
 ## Tech Stack
 
@@ -180,7 +192,11 @@ Phase 6 adds `review_sessions`, `review_findings`, `edit_proposals`, `document_v
 `app/core/db_schema.sql`, which runs automatically when the backend connects, so existing
 databases pick them up on the next start. No separate migration script is required.
 
-### 10. Run the Application
+### 10. Phase 7 - No Migration Needed
+
+Phase 7 extends the Document IR in-memory and adds new API routes. No database schema changes are required.
+
+### 11. Run the Application
 
 **Using Startup Script (Easiest with Groq):**
 ```powershell
@@ -263,6 +279,21 @@ Once the backend is running, visit:
 | GET | `/api/documents/{id}/version-compare` | Structured diff between two versions |
 | POST | `/api/documents/{id}/version-restore/{n}` | Restore a version after snapshotting the current text |
 
+### Phase 7 endpoints (all require authentication and document ownership)
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/templates/` | List all document templates (optional category filter) |
+| GET | `/api/templates/categories` | List all template categories |
+| GET | `/api/templates/{template_id}` | Get specific template details |
+| POST | `/api/images/upload` | Upload image file (multipart/form-data) |
+| POST | `/api/images/upload-base64` | Upload base64-encoded image |
+| GET | `/api/images/{image_id}` | Retrieve uploaded image |
+| DELETE | `/api/images/{image_id}` | Delete uploaded image |
+| POST | `/api/documents/{id}/apply-template` | Apply template to document (query param: template_id) |
+| GET | `/api/documents/{id}/export-history` | Get export history for document |
+| GET | `/api/export-formats` | List supported export formats with capabilities |
+
 ## Document Types Supported
 
 - General Report
@@ -273,13 +304,15 @@ Once the backend is running, visit:
 - Article/Essay
 - Resume
 
-## Export Formats
+## Export Formats (Phase 7 Enhanced)
 
-- **DOCX**: Microsoft Word with full formatting
-- **PDF**: Professional layout with styling
-- **Markdown**: GitHub-flavored Markdown
-- **HTML**: Standalone HTML document
-- **Plain Text**: Clean text with structure
+All export formats now support Phase 7 advanced features:
+
+- **PDF**: Professional layout with images, page breaks, custom margins, colors, and fonts
+- **DOCX**: Microsoft Word with full formatting, images, page layout, and advanced text styling
+- **HTML**: Standalone HTML with inline styles, images in figures, and print media support
+- **Markdown**: GitHub-flavored Markdown with images, strikethrough, and HTML formatting
+- **Plain Text**: Clean text with structure (basic formatting only)
 
 ## Architecture
 
@@ -290,6 +323,15 @@ All document content uses a canonical JSON schema validated with Pydantic. This 
 - Editing
 - Persistence
 - Export
+
+**Current Version**: v1.1.0 (Phase 7)
+
+**Phase 7 Enhancements**:
+- **Image blocks**: url, alt_text, caption, width, height, alignment
+- **PageBreak blocks**: Simple page break markers
+- **Advanced inline formatting**: colors, font_size, font_family, strikethrough, background_color
+- **Page layout**: page_size, orientation, margins, headers/footers, page_numbers
+- **Template support**: template_id reference in metadata
 
 See `backend/app/models/document_ir.py` for the complete schema.
 
@@ -318,9 +360,17 @@ See [GROQ_SETUP.md](GROQ_SETUP.md) for detailed setup instructions.
 
 Configure via `AI_PROVIDER` in `.env`.
 
-### Export System
+### Export System (Phase 7 Enhanced)
 
 Exporters use a registry pattern for extensibility. Each format implements the `Exporter` interface, making it easy to add new formats.
+
+**Phase 7 Updates**:
+- All exporters support Image blocks with captions and alignment
+- Page breaks for print formatting
+- Page layout configuration (size, orientation, margins)
+- Advanced inline formatting (colors, fonts, strikethrough)
+- Export history tracking with metadata
+- Format capability reporting
 
 ## Project Structure
 
@@ -337,12 +387,25 @@ DocForge/
 ├── backend/           # Python + FastAPI
 │   ├── app/
 │   │   ├── api/      # API routes
+│   │   │   ├── templates.py      # Phase 7: Template API
+│   │   │   └── images.py         # Phase 7: Image upload API
 │   │   ├── models/   # Pydantic models
+│   │   │   ├── template.py       # Phase 7: Template models
+│   │   │   └── export_config.py  # Phase 7: Export configuration
+│   │   ├── services/              # Business logic
+│   │   │   ├── template_service.py  # Phase 7: 12 built-in templates
+│   │   │   ├── image_service.py     # Phase 7: Image processing
+│   │   │   └── export_service.py    # Phase 7: Export history
 │   │   ├── repositories/  # Data access
 │   │   ├── providers/     # AI providers
-│   │   ├── exporters/     # Export formats
+│   │   ├── exporters/     # Export formats (Phase 7 enhanced)
 │   │   └── tests/    # Test suite
+│   ├── uploads/
+│   │   └── images/   # Phase 7: Uploaded images
+│   ├── data/
+│   │   └── export_history/  # Phase 7: Export history JSON
 │   └── requirements.txt
+├── PHASE_7_TESTING_GUIDE.md  # Phase 7 testing instructions
 └── README.md
 ```
 
@@ -394,7 +457,7 @@ See `.kiro/steering/docforge-engineering-guide.md` for development guidelines an
 - **Phase 4**: Knowledge Base & Source Ingestion ✅
 - **Phase 5**: Research, Citations & Factual Verification ✅
 - **Phase 6**: AI Reviewer & Advanced Editing ✅
-- **Phase 7** (Planned): Advanced Formatting & Multi-format Exports
+- **Phase 7**: Advanced Formatting & Multi-format Exports (Backend ✅, Frontend ⏳)
 - **Phase 8** (Planned): Advanced Analytics & Insights
 - **Phase 9** (Planned): Production scaling & Cloud deployment
 
@@ -534,6 +597,13 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - **citations** (Phase 5) - In-text citations with formatting
 - **claim_verifications** (Phase 5) - Factual claim verification results
 - **claim_verification_evidence** (Phase 5) - Evidence-to-claim links
+- **review_sessions** (Phase 6) - Document review sessions
+- **review_findings** (Phase 6) - Review findings with anchors
+- **edit_proposals** (Phase 6) - Proposed edits with diffs
+- **document_version_notes** (Phase 6) - Version provenance metadata
+- **compliance_checks** (Phase 6) - Brief compliance check results
+
+**Phase 7 Notes**: No new database tables. Templates stored in-memory, images stored in filesystem (`uploads/images/`), export history stored as JSON files (`data/export_history/`).
 
 ## Security Features
 
@@ -553,6 +623,7 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - ✅ **Phase 4**: Knowledge Base & Source Ingestion (Complete)
 - ✅ **Phase 5**: Research, Citations & Factual Verification (Complete)
 - ✅ **Phase 6**: AI Reviewer & Advanced Editing (Complete)
+- ✅ **Phase 7**: Advanced Formatting & Multi-format Exports (Backend Complete, Frontend Pending)
 
 ## Contributing
 
