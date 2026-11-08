@@ -87,6 +87,18 @@ class MarkdownExporter(Exporter):
                 for row in block.rows:
                     lines.append("| " + " | ".join(row) + " |")
                 lines.append("")
+            
+            elif block.type == "image":
+                # Markdown image syntax
+                alt_text = block.alt_text or block.caption or "Image"
+                lines.append(f"![{alt_text}]({block.url})")
+                if block.caption and block.caption != block.alt_text:
+                    lines.append(f"*{block.caption}*")
+                lines.append("")
+            
+            elif block.type == "page_break":
+                # Markdown doesn't have page breaks, use horizontal rule
+                lines.append("---\n")
         
         return lines
     
@@ -96,10 +108,38 @@ class MarkdownExporter(Exporter):
         for item in content:
             text = item.text
             
-            if item.bold:
+            # Strikethrough
+            if item.strikethrough:
+                text = f"~~{text}~~"
+            
+            # Bold and italic
+            if item.bold and item.italic:
+                text = f"***{text}***"
+            elif item.bold:
                 text = f"**{text}**"
-            if item.italic:
+            elif item.italic:
                 text = f"*{text}*"
+            
+            # Underline (not standard Markdown, but HTML works)
+            if item.underline:
+                text = f"<u>{text}</u>"
+            
+            # Color and font (use HTML for advanced formatting)
+            if item.color or item.font_size or item.font_family or item.background_color:
+                style_parts = []
+                if item.color:
+                    style_parts.append(f"color: {item.color}")
+                if item.background_color:
+                    style_parts.append(f"background-color: {item.background_color}")
+                if item.font_size:
+                    style_parts.append(f"font-size: {item.font_size}px")
+                if item.font_family:
+                    style_parts.append(f"font-family: {item.font_family}")
+                
+                style = "; ".join(style_parts)
+                text = f'<span style="{style}">{text}</span>'
+            
+            # Links
             if item.link:
                 text = f"[{text}]({item.link})"
             

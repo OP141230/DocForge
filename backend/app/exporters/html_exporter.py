@@ -53,6 +53,14 @@ class HTMLExporter(Exporter):
         a {{ color: #3498db; text-decoration: none; }}
         a:hover {{ text-decoration: underline; }}
         .metadata {{ color: #777; font-size: 0.9rem; margin-bottom: 2rem; }}
+        figure {{ margin: 1rem 0; }}
+        figure.align-center {{ text-align: center; }}
+        figure.align-right {{ text-align: right; }}
+        figcaption {{ font-size: 0.9rem; color: #666; font-style: italic; margin-top: 0.5rem; }}
+        img {{ max-width: 100%; height: auto; }}
+        @media print {{
+            [style*="page-break-after: always"] {{ page-break-after: always; }}
+        }}
     </style>
 </head>
 <body>
@@ -117,6 +125,30 @@ class HTMLExporter(Exporter):
                     html += "            </tr>\n"
                 html += "        </tbody>\n"
                 html += "    </table>\n"
+            
+            elif block.type == "image":
+                # Image tag with optional styling
+                style_parts = []
+                if block.width:
+                    style_parts.append(f"width: {block.width}px")
+                if block.height:
+                    style_parts.append(f"height: {block.height}px")
+                
+                style_attr = f' style="{"; ".join(style_parts)}"' if style_parts else ''
+                alt_text = escape(block.alt_text or block.caption or "Image")
+                
+                # Alignment
+                align_class = f' class="align-{block.alignment}"' if block.alignment else ''
+                
+                html += f'    <figure{align_class}>\n'
+                html += f'        <img src="{escape(block.url)}" alt="{alt_text}"{style_attr}>\n'
+                if block.caption:
+                    html += f'        <figcaption>{escape(block.caption)}</figcaption>\n'
+                html += '    </figure>\n'
+            
+            elif block.type == "page_break":
+                # Page break for print media
+                html += '    <div style="page-break-after: always;"></div>\n'
         
         return html
     
@@ -126,12 +158,31 @@ class HTMLExporter(Exporter):
         for item in content:
             text = escape(item.text)
             
+            # Build inline styles
+            style_parts = []
+            if item.color:
+                style_parts.append(f"color: {item.color}")
+            if item.background_color:
+                style_parts.append(f"background-color: {item.background_color}")
+            if item.font_size:
+                style_parts.append(f"font-size: {item.font_size}px")
+            if item.font_family:
+                style_parts.append(f"font-family: {item.font_family}")
+            
+            # Wrap in span with styles if needed
+            if style_parts:
+                style_attr = "; ".join(style_parts)
+                text = f'<span style="{style_attr}">{text}</span>'
+            
+            # Apply text formatting
             if item.bold:
                 text = f"<strong>{text}</strong>"
             if item.italic:
                 text = f"<em>{text}</em>"
             if item.underline:
                 text = f"<u>{text}</u>"
+            if item.strikethrough:
+                text = f"<s>{text}</s>"
             if item.link:
                 text = f'<a href="{escape(item.link)}">{text}</a>'
             

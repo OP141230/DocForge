@@ -1,12 +1,15 @@
 """DOCX exporter using python-docx."""
 from io import BytesIO
-from typing import List
+from typing import List, Optional
+from pathlib import Path
 
 from docx import Document
-from docx.shared import Pt, RGBColor
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.shared import Pt, RGBColor, Inches
+from docx.enum.text import WD_PARAGRAPH_ALIGNMENT, WD_BREAK
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
-from app.models.document_ir import DocumentIR, Section, InlineContent
+from app.models.document_ir import DocumentIR, Section, InlineContent, PageLayout
 from .base import Exporter
 
 
@@ -29,6 +32,10 @@ class DOCXExporter(Exporter):
         """Export DocumentIR to DOCX."""
         doc = Document()
         
+        # Apply page layout settings
+        if document.metadata.page_layout:
+            self._apply_page_layout(doc, document.metadata.page_layout)
+        
         # Title
         title = doc.add_heading(document.title, level=0)
         title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
@@ -50,6 +57,32 @@ class DOCXExporter(Exporter):
         doc.save(buffer)
         buffer.seek(0)
         return buffer.getvalue()
+    
+    def _apply_page_layout(self, doc: Document, layout: PageLayout):
+        """Apply page layout settings to document."""
+        section = doc.sections[0]
+        
+        # Set page size
+        if layout.page_size == "letter":
+            section.page_width = Inches(8.5)
+            section.page_height = Inches(11)
+        elif layout.page_size == "a4":
+            section.page_width = Inches(8.27)
+            section.page_height = Inches(11.69)
+        elif layout.page_size == "legal":
+            section.page_width = Inches(8.5)
+            section.page_height = Inches(14)
+        
+        # Handle orientation
+        if layout.orientation == "landscape":
+            # Swap width and height
+            section.page_width, section.page_height = section.page_height, section.page_width
+        
+        # Set margins from individual fields
+        section.top_margin = Inches(layout.margin_top)
+        section.bottom_margin = Inches(layout.margin_bottom)
+        section.left_margin = Inches(layout.margin_left)
+        section.right_margin = Inches(layout.margin_right)
     
     def _format_section(self, doc: Document, section: Section):
         """Format a section in DOCX."""
@@ -76,7 +109,8 @@ class DOCXExporter(Exporter):
                 para.paragraph_format.left_indent = Pt(36)
                 para.paragraph_format.right_indent = Pt(36)
                 self._add_inline_content(para, block.content)
-                para.runs[0].font.italic = True
+                if para.runs:
+                    para.runs[0].font.italic = True
                 if block.attribution:
                     attr_para = doc.add_paragraph(f"— {block.attribution}")
                     attr_para.paragraph_format.left_indent = Pt(36)
@@ -87,7 +121,6 @@ class DOCXExporter(Exporter):
                 para.runs[0].font.name = 'Courier New'
                 para.runs[0].font.size = Pt(10)
                 para.paragraph_format.left_indent = Pt(36)
-                # Light gray background effect (not perfect but reasonable)
                 para.runs[0].font.color.rgb = RGBColor(0, 0, 0)
             
             elif block.type == "table":
@@ -111,18 +144,110 @@ class DOCXExporter(Exporter):
                     for col_idx, cell_text in enumerate(data_row):
                         table.rows[row_idx].cells[col_idx].text = cell_text
                     row_idx += 1
+            
+            elif block.type == "image":
+                # Handle image block
+                try:
+                    # Resolve image path
+                    image_path = self._resolve_image_path(block.url)
+                    
+                    # Add image
+                    if block.width:
+                        img = doc.add_picture(image_path, width=Inches(block.width / 96))  # Assuming 96 DPI
+                    else:
+                        img = doc.add_picture(image_path)
+                    
+                    # Set alignment
+                    last_paragraph = doc.paragraphs[-1]
+                    if block.alignment == "center":
+                        last_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                    elif block.alignment == "right":
+                        last_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
+                    else:
+                        last_paragraph.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
+                    
+                    # Add caption if present
+                    if block.caption:
+                        caption_para = doc.add_paragraph(block.caption)
+                        caption_para.runs[0].font.size = Pt(9)
+                        caption_para.runs[0].font.italic = True
+                        caption_para.runs[0].font.color.rgb = RGBColor(128, 128, 128)
+                        caption_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                
+                except Exception as e:
+                    # If image fails, add error message
+                    error_para = doc.add_paragraph(f"[Image failed to load: {block.url}]")
+                    error_para.runs[0].font.color.rgb = RGBColor(255, 0, 0)
+            
+            elif block.type == "page_break":
+                # Add page break
+                doc.add_page_break()
+    
+    def _resolve_image_path(self, url: str) -> str:
+        """Resolve image URL to local file path."""
+        # If it's already a local file path
+        if Path(url).exists():
+            return url
+        
+        # If it's an API URL like /api/images/{id}
+        if url.startswith("/api/images/"):
+            image_id = url.split("/")[-1]
+            # Look in uploads directory
+            uploads_dir = Path("uploads/images")
+            for ext in ["png", "jpg", "jpeg", "gif", "webp", "bmp"]:
+                image_path = uploads_dir / f"{image_id}.{ext}"
+                if image_path.exists():
+                    return str(image_path)
+        
+        # Otherwise return as-is
+        return url
     
     def _add_inline_content(self, paragraph, content: List[InlineContent]):
         """Add inline content to a paragraph with formatting."""
         for item in content:
             run = paragraph.add_run(item.text)
             
+            # Basic formatting
             if item.bold:
                 run.font.bold = True
             if item.italic:
                 run.font.italic = True
             if item.underline:
                 run.font.underline = True
+            
+            # Strike through
+            if item.strikethrough:
+                run.font.strike = True
+            
+            # Text color
+            if item.color:
+                try:
+                    color_hex = item.color.lstrip('#')
+                    r = int(color_hex[0:2], 16)
+                    g = int(color_hex[2:4], 16)
+                    b = int(color_hex[4:6], 16)
+                    run.font.color.rgb = RGBColor(r, g, b)
+                except:
+                    pass  # Skip invalid colors
+            
+            # Background color (highlight)
+            if item.background_color:
+                try:
+                    # python-docx supports limited highlight colors
+                    # We'll skip this or use shading if needed
+                    pass
+                except:
+                    pass
+            
+            # Font size
+            if item.font_size:
+                run.font.size = Pt(item.font_size)
+            
+            # Font family
+            if item.font_family:
+                run.font.name = item.font_family
+            
+            # Links
             if item.link:
                 # Simple hyperlink representation (python-docx hyperlinks are complex)
                 link_run = paragraph.add_run(f" ({item.link})")

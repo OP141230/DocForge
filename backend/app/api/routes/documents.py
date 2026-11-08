@@ -228,3 +228,138 @@ async def export_document(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to export document: {str(e)}")
+
+
+@router.post("/documents/{document_id}/apply-template", response_model=DocumentIR)
+async def apply_template_to_document(
+    document_id: str,
+    template_id: str = Query(..., description="Template ID to apply"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Apply a template to an existing document.
+    
+    Updates the document's metadata with template information and page layout settings.
+    
+    Args:
+        document_id: Document to update
+        template_id: Template to apply
+        current_user: Authenticated user
+        
+    Returns:
+        Updated document
+        
+    Raises:
+        HTTPException: If document or template not found
+    """
+    try:
+        from app.services.template_service import TemplateService
+        
+        db = await get_database()
+        repo = DocumentRepository(db)
+        
+        # Verify document ownership
+        document = await repo.get_by_id(document_id, user_id=current_user.id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Get template
+        template = TemplateService.get_template_by_id(template_id)
+        if not template:
+            raise HTTPException(status_code=404, detail=f"Template '{template_id}' not found")
+        
+        # Apply template settings to document
+        document.metadata.template_id = template_id
+        
+        # Apply page layout from template
+        if template.page_layout:
+            document.metadata.page_layout = template.page_layout
+        
+        # Update document
+        updated = await repo.update(document)
+        
+        return updated
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to apply template: {str(e)}"
+        )
+
+
+@router.get("/documents/{document_id}/export-history")
+async def get_export_history(
+    document_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get export history for a document.
+    
+    Args:
+        document_id: Document ID
+        current_user: Authenticated user
+        
+    Returns:
+        List of export history entries
+        
+    Raises:
+        HTTPException: If document not found
+    """
+    try:
+        from app.services.export_service import ExportService
+        
+        db = await get_database()
+        repo = DocumentRepository(db)
+        
+        # Verify document ownership
+        document = await repo.get_by_id(document_id, user_id=current_user.id)
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Get export history
+        export_service = ExportService()
+        history = await export_service.get_export_history(document_id)
+        
+        return {"history": history}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve export history: {str(e)}"
+        )
+
+
+@router.get("/export-formats")
+async def get_export_formats(current_user: User = Depends(get_current_user)):
+    """
+    Get information about supported export formats.
+    
+    Args:
+        current_user: Authenticated user
+        
+    Returns:
+        List of supported formats with details
+    """
+    try:
+        from app.services.export_service import ExportService
+        
+        export_service = ExportService()
+        formats = export_service.get_supported_formats()
+        
+        format_info = []
+        for fmt in formats:
+            info = export_service.get_format_info(fmt)
+            if info:
+                format_info.append(info)
+        
+        return {"formats": format_info}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve export formats: {str(e)}"
+        )

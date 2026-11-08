@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from app.core.config import get_settings
 from app.core.database import get_database, close_database
 from app.api.routes import health, generate, documents, auth, conversations, document_briefs, knowledge, research, review
+from app.api import templates, images
 
 
 @asynccontextmanager
@@ -45,6 +46,10 @@ app.include_router(document_briefs.router, prefix="/api", tags=["document-briefs
 app.include_router(knowledge.router, prefix="/api", tags=["knowledge-base"])
 app.include_router(research.router, prefix="/api", tags=["research"])
 app.include_router(review.router, prefix="/api", tags=["review"])
+app.include_router(templates.router, prefix="/api/templates", tags=["templates"])
+app.include_router(images.router, prefix="/api/images", tags=["images"])
+app.include_router(templates.router, prefix="/api/templates", tags=["templates"])
+app.include_router(images.router, prefix="/api/images", tags=["images"])
 
 
 @app.get("/")
