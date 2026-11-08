@@ -91,7 +91,26 @@ def document_factory():
 
 
 @pytest.fixture
-async def api_client(test_db, user):
+def use_test_database(test_db, monkeypatch):
+    """Point the global database accessor at the in-memory test database.
+
+    The route modules call ``await get_database()`` directly rather than
+    declaring ``Depends(get_database)``, so FastAPI's ``dependency_overrides``
+    does not intercept them. Without this patch the routes would read and write
+    the real ``./docforge.db`` file, which makes tests slow and lets one test's
+    data leak into the next.
+
+    ``monkeypatch`` restores the original value after every test, so no state
+    escapes the fixture.
+    """
+    import app.core.database as database_module
+
+    monkeypatch.setattr(database_module, "_db", test_db, raising=False)
+    return test_db
+
+
+@pytest.fixture
+async def api_client(use_test_database, test_db, user):
     """ASGI client with authentication and database dependencies overridden."""
     from main import app
 
@@ -112,7 +131,7 @@ async def api_client(test_db, user):
 
 
 @pytest.fixture
-async def api_client_factory(test_db):
+async def api_client_factory(use_test_database, test_db):
     """Build a client authenticated as a specific user (for isolation tests)."""
     from main import app
 

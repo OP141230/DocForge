@@ -59,6 +59,19 @@ DocForge is an all-round documentation agent that helps you plan, generate, rese
 - 🔒 **SSRF Protection**: URL validation and private IP blocking
 - ⚡ **Rate Limiting**: Configurable per-user API rate limits
 
+### Phase 6 (Complete ✅)
+- 🤖 **AI Document Reviewer**: five review modes (quick, full, academic, technical, custom) over a whole document or a single section
+- 🧾 **Deterministic Checks First**: repetition, heading order, filler phrasing and missing required sections are measured, not guessed
+- 🎯 **Quote-Verified AI Findings**: every AI finding must quote text that really exists; invented quotes, unknown categories and bad severities are discarded
+- 🏷️ **Honest Labelling**: each finding records whether it was checked automatically or suggested by AI
+- 🧭 **Stable Anchors**: findings point at `section_id`/`block_id`, never at model-supplied offsets, so they survive edits and are marked stale when the text changes
+- ✍️ **Reviewable Edits**: 25 operations (clarity, grammar, structure, tone, terminology…) proposed as diffs, applied only when you accept, with pre- and post-edit versions written in one transaction
+- 🔒 **No Silent Rewrites**: whole-document rewrites are refused by design; every apply is a single reviewable change
+- 📎 **Citation-Safe Editing**: citation markers are preserved, and affected citations and verified claims are queued for re-checking
+- 📊 **Brief Compliance**: requirements from the DocumentBrief checked deterministically, with qualitative points clearly labelled as AI opinions
+- 🕘 **Version History**: side-by-side comparison, provenance for each version, and undoable restores
+
+
 ## Tech Stack
 
 **Frontend**:
@@ -160,6 +173,13 @@ pip install pypdf2 beautifulsoup4 lxml
 python migrate_phase5.py
 ```
 
+### 9b. Phase 6 Tables (No Migration Needed)
+
+Phase 6 adds `review_sessions`, `review_findings`, `edit_proposals`, `document_version_notes` and
+`compliance_checks`. They are declared with `CREATE TABLE IF NOT EXISTS` in
+`app/core/db_schema.sql`, which runs automatically when the backend connects, so existing
+databases pick them up on the next start. No separate migration script is required.
+
 ### 10. Run the Application
 
 **Using Startup Script (Easiest with Groq):**
@@ -204,8 +224,13 @@ pytest app/tests/ -v
 ### Frontend Tests
 ```powershell
 cd frontend
-npm test
+npm test          # watch mode
+npx vitest run    # single run (CI)
 ```
+
+Phase 6 component tests live next to the components they cover
+(`src/components/review/*.test.tsx`). They run in a jsdom environment configured by
+`vitest.config.ts`.
 
 ## Building for Production
 
@@ -220,6 +245,23 @@ npm run build
 Once the backend is running, visit:
 - Interactive API docs: http://localhost:8000/docs
 - Alternative docs: http://localhost:8000/redoc
+
+### Phase 6 endpoints (all require an authenticated session and document ownership)
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/api/documents/{id}/reviews` | Run a review (mode, scope, categories, `use_ai`) |
+| GET | `/api/documents/{id}/reviews/latest` | Latest report for a document |
+| GET | `/api/reviews/{review_id}` | One report, filterable by category/severity/status |
+| PATCH | `/api/findings/{finding_id}` | Accept, reject, ignore or resolve a finding |
+| POST | `/api/documents/{id}/edit-proposals` | Propose an edit for a section or block |
+| POST | `/api/edit-proposals/{id}/apply` | Apply an accepted edit (409 if the text changed) |
+| POST | `/api/edit-proposals/{id}/reject` | Discard a proposal |
+| POST | `/api/documents/{id}/compliance` | Check the document against its brief |
+| GET | `/api/documents/{id}/compliance` | Latest compliance report |
+| GET | `/api/documents/{id}/version-history` | Version list with provenance |
+| GET | `/api/documents/{id}/version-compare` | Structured diff between two versions |
+| POST | `/api/documents/{id}/version-restore/{n}` | Restore a version after snapshotting the current text |
 
 ## Document Types Supported
 
@@ -351,8 +393,10 @@ See `.kiro/steering/docforge-engineering-guide.md` for development guidelines an
 - **Phase 3**: DocumentBrief planning system ✅
 - **Phase 4**: Knowledge Base & Source Ingestion ✅
 - **Phase 5**: Research, Citations & Factual Verification ✅
-- **Phase 6** (Planned): Advanced Analytics & Insights
-- **Phase 7** (Planned): Production scaling & Cloud deployment
+- **Phase 6**: AI Reviewer & Advanced Editing ✅
+- **Phase 7** (Planned): Advanced Formatting & Multi-format Exports
+- **Phase 8** (Planned): Advanced Analytics & Insights
+- **Phase 9** (Planned): Production scaling & Cloud deployment
 
 ---
 
@@ -508,6 +552,7 @@ See `TESTING_GUIDE.md` for complete manual testing checklist.
 - ✅ **Phase 3**: DocumentBrief planning system (Complete)
 - ✅ **Phase 4**: Knowledge Base & Source Ingestion (Complete)
 - ✅ **Phase 5**: Research, Citations & Factual Verification (Complete)
+- ✅ **Phase 6**: AI Reviewer & Advanced Editing (Complete)
 
 ## Contributing
 

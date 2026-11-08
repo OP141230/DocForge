@@ -1,5 +1,13 @@
 // Conversation types (mirror backend Pydantic models)
 
+export interface MessageAttachment {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  data_url: string;  // base64-encoded data URL
+}
+
 export interface Conversation {
   id: string;
   user_id: string;
@@ -13,6 +21,7 @@ export interface Message {
   conversation_id: string;
   role: 'user' | 'assistant';
   content: string;
+  attachments: MessageAttachment[];
   sequence_number: number;
   created_at: string;
   updated_at: string;
@@ -26,6 +35,7 @@ export interface CreateConversationRequest {
 export interface CreateMessageRequest {
   role: 'user' | 'assistant';
   content: string;
+  attachments?: MessageAttachment[];
 }
 
 export interface ConversationListResponse {

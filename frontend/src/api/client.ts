@@ -230,12 +230,24 @@ export const api = {
   },
 
   // Messages
-  async createMessage(conversationId: string, role: 'user' | 'assistant', content: string) {
+  async createMessage(
+    conversationId: string, 
+    role: 'user' | 'assistant', 
+    content: string,
+    attachments: { filename: string; mime_type: string; size_bytes: number; data_url: string }[] = []
+  ) {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ role, content }),
+      body: JSON.stringify({ 
+        role, 
+        content,
+        attachments: attachments.map(att => ({
+          id: crypto.randomUUID(),
+          ...att
+        }))
+      }),
     });
     if (!res.ok) throw new Error('Failed to create message');
     return res.json();
@@ -684,6 +696,135 @@ export const api = {
       credentials: 'include',
     });
     if (!res.ok) throw new Error('Failed to get status labels');
+    return res.json();
+  },
+
+  // ---------------------------------------------------------------------
+  // Phase 6: review, editing, compliance, versions
+  // ---------------------------------------------------------------------
+
+  async startReview(documentId: string, data: { mode: string; categories?: string[]; scope?: string; section_id?: string; use_ai?: boolean }) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.detail || 'Failed to start review');
+    }
+    return res.json();
+  },
+
+  async getLatestReview(documentId: string) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/reviews/latest`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to load review');
+    return res.json();
+  },
+
+  async getReview(reviewId: string) {
+    const res = await fetch(`${API_BASE}/reviews/${reviewId}`, { credentials: 'include' });
+    if (!res.ok) throw new Error('Failed to load review');
+    return res.json();
+  },
+
+  async updateFinding(findingId: string, status: string) {
+    const res = await fetch(`${API_BASE}/findings/${findingId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) throw new Error('Failed to update finding');
+    return res.json();
+  },
+
+  async proposeEdit(documentId: string, data: { operation: string; target_type?: string; section_id?: string; block_id?: string; instruction?: string }) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/edit-proposals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.detail || 'Failed to generate suggestion');
+    }
+    return res.json();
+  },
+
+  async applyProposal(proposalId: string, expectedFingerprint?: string) {
+    const res = await fetch(`${API_BASE}/edit-proposals/${proposalId}/apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ expected_fingerprint: expectedFingerprint ?? null }),
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      const failure = new Error(error.detail || 'Failed to apply edit') as Error & { status?: number };
+      failure.status = res.status;
+      throw failure;
+    }
+    return res.json();
+  },
+
+  async rejectProposal(proposalId: string) {
+    const res = await fetch(`${API_BASE}/edit-proposals/${proposalId}/reject`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to reject edit');
+    return res.json();
+  },
+
+  async checkCompliance(documentId: string, useAi = true) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/compliance?use_ai=${useAi}`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to check compliance');
+    return res.json();
+  },
+
+  async getLatestCompliance(documentId: string) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/compliance`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to load compliance');
+    return res.json();
+  },
+
+  async getVersionHistory(documentId: string) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/version-history`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to load version history');
+    return res.json();
+  },
+
+  async compareVersions(documentId: string, fromVersion: number, toVersion: number) {
+    const res = await fetch(
+      `${API_BASE}/documents/${documentId}/version-compare?from_version=${fromVersion}&to_version=${toVersion}`,
+      { credentials: 'include' },
+    );
+    if (!res.ok) throw new Error('Failed to compare versions');
+    return res.json();
+  },
+
+  // Phase 6 restore: snapshots the current text as a new version first, so the
+  // restore itself can be undone. The older `restoreVersion` above targets a
+  // different endpoint that overwrites the document without saving it; keep
+  // using this one for anything user-facing.
+  async restoreVersionSnapshot(documentId: string, versionNumber: number) {
+    const res = await fetch(`${API_BASE}/documents/${documentId}/version-restore/${versionNumber}`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error('Failed to restore version');
     return res.json();
   },
 };

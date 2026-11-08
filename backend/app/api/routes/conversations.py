@@ -126,6 +126,8 @@ async def create_message(
 ):
     """Add a message to a conversation (requires authentication and ownership)."""
     try:
+        from app.services.ocr_service import OCRService
+        
         db = await get_database()
         conv_repo = ConversationRepository(db)
         msg_repo = MessageRepository(db)
@@ -139,12 +141,30 @@ async def create_message(
         latest_sequence = await msg_repo.get_latest_sequence(conversation_id)
         next_sequence = latest_sequence + 1
         
-        # Create message with provided role
+        # Extract text from images using OCR (if attachments present)
+        extracted_texts = []
+        if request.attachments:
+            for attachment in request.attachments:
+                try:
+                    ocr_text = OCRService.extract_text_from_data_url(attachment.data_url)
+                    if ocr_text:
+                        extracted_texts.append(f"[Text from {attachment.filename}]:\n{ocr_text}")
+                except Exception as e:
+                    print(f"OCR failed for {attachment.filename}: {e}")
+        
+        # Enhance message content with extracted text
+        enhanced_content = request.content
+        if extracted_texts:
+            ocr_section = "\n\n---\n\n**Extracted text from images:**\n\n" + "\n\n".join(extracted_texts)
+            enhanced_content = (enhanced_content + ocr_section) if enhanced_content else ocr_section.strip()
+        
+        # Create message with provided role and attachments
         message = await msg_repo.create(
             conversation_id=conversation_id,
             role=request.role,
-            content=request.content,
-            sequence_number=next_sequence
+            content=enhanced_content,
+            sequence_number=next_sequence,
+            attachments=request.attachments
         )
         
         return message

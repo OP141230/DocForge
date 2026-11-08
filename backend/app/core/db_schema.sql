@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS messages (
     conversation_id TEXT NOT NULL,
     role TEXT NOT NULL,  -- 'user' or 'assistant'
     content TEXT NOT NULL,
+    attachments TEXT NOT NULL DEFAULT '[]',  -- JSON array of MessageAttachment objects
     sequence_number INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -396,3 +397,126 @@ CREATE TABLE IF NOT EXISTS claim_verification_evidence (
     FOREIGN KEY (verification_id) REFERENCES claim_verifications(id) ON DELETE CASCADE,
     FOREIGN KEY (evidence_id) REFERENCES research_evidence(id) ON DELETE CASCADE
 );
+
+-- ===========================================================================
+-- Phase 6: AI Reviewer & Advanced Editing
+-- ===========================================================================
+-- conventions carried over from Phase 5:
+--   * every table carries user_id so ownership is enforced in SQL as well as
+--     in Python;
+--   * child rows carry explicit foreign keys; repositories delete children
+--     explicitly because PRAGMA foreign_keys is not globally enabled;
+--   * ISO-8601 TEXT timestamps everywhere.
+
+CREATE TABLE IF NOT EXISTS review_sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    brief_id TEXT,
+    mode TEXT NOT NULL DEFAULT 'quick',
+    categories TEXT NOT NULL DEFAULT '[]',
+    scope TEXT NOT NULL DEFAULT 'document',
+    section_id TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    document_fingerprint TEXT,
+    provider TEXT,
+    provider_message TEXT,
+    error TEXT,
+    progress_message TEXT,
+    findings_total INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+    FOREIGN KEY (brief_id) REFERENCES document_briefs(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_sessions_user ON review_sessions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_review_sessions_document ON review_sessions(document_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS review_findings (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    review_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    category TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'ai',
+    title TEXT NOT NULL,
+    explanation TEXT NOT NULL DEFAULT '',
+    section_id TEXT,
+    section_title TEXT,
+    block_id TEXT,
+    original_text TEXT,
+    start_offset INTEGER,
+    end_offset INTEGER,
+    suggested_text TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    evidence_ids TEXT NOT NULL DEFAULT '[]',
+    citation_ids TEXT NOT NULL DEFAULT '[]',
+    document_fingerprint TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (review_id) REFERENCES review_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_findings_review ON review_findings(review_id, severity);
+CREATE INDEX IF NOT EXISTS idx_review_findings_document ON review_findings(document_id, status);
+
+CREATE TABLE IF NOT EXISTS edit_proposals (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    review_id TEXT,
+    finding_id TEXT,
+    operation TEXT NOT NULL,
+    target_type TEXT NOT NULL DEFAULT 'section',
+    section_id TEXT,
+    block_id TEXT,
+    original_text TEXT NOT NULL,
+    proposed_text TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'proposed',
+    base_fingerprint TEXT,
+    provider TEXT,
+    notes TEXT,
+    impact TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+    FOREIGN KEY (review_id) REFERENCES review_sessions(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_edit_proposals_document ON edit_proposals(document_id, status);
+
+-- Provenance for document_versions. Kept as a side table (rather than adding
+-- columns) so an existing database needs no ALTER TABLE migration.
+CREATE TABLE IF NOT EXISTS document_version_notes (
+    document_id TEXT NOT NULL,
+    version_number INTEGER NOT NULL,
+    user_id TEXT NOT NULL,
+    origin TEXT NOT NULL DEFAULT 'manual',
+    operation TEXT,
+    summary TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (document_id, version_number),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS compliance_checks (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    document_id TEXT NOT NULL,
+    brief_id TEXT,
+    overall TEXT NOT NULL,
+    results TEXT NOT NULL DEFAULT '[]',
+    document_fingerprint TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_compliance_checks_document ON compliance_checks(document_id, created_at DESC);

@@ -97,3 +97,46 @@ class AIProvider(ABC):
         support - an LLM's silence is not evidence either way.
         """
         return None
+
+    # ------------------------------------------------------------------
+    # Optional Phase 6 capabilities
+    # ------------------------------------------------------------------
+    # Same pattern as above: concrete defaults so a provider written for
+    # Phase 1 keeps working. "Returns None" means "this provider cannot do it",
+    # which the reviewer turns into a clearly-labelled limitation instead of
+    # pretending the check ran.
+
+    async def review_document(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Return structured review findings for a document slice.
+
+        ``payload`` keys (all untrusted *data*, never instructions):
+
+        * ``text`` - the flattened text to review
+        * ``categories`` - category ids the caller wants checked
+        * ``requirements`` - brief metadata (document type, audience, tone)
+        * ``evidence`` - optional list of ``{marker, title, url, text}``
+        * ``section_titles`` - ordering hints for structural review
+
+        The return value must look like ``{"findings": [RawFinding, ...]}``.
+        Callers validate every field and reject anything they cannot locate in
+        the real document.
+        """
+        return None
+
+    async def transform_text(self, payload: Dict[str, Any]) -> Optional[str]:
+        """Rewrite ``payload['text']`` according to ``payload['instruction']``.
+
+        Must return the rewritten text only - no JSON envelope, no commentary.
+        Returning ``None`` means the operation is unsupported.
+        """
+        return None
+
+    async def assess_compliance(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Judge qualitative brief requirements (tone, audience, coverage).
+
+        Returns ``{"results": [{"requirement", "status", "explanation",
+        "suggested_action"}]}`` where ``status`` is one of the ComplianceStatus
+        values. Deterministic checks (word count, required sections) are done by
+        the service, not the model.
+        """
+        return None

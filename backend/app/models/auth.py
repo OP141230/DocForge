@@ -66,12 +66,22 @@ class Conversation(BaseModel):
         }
 
 
+class MessageAttachment(BaseModel):
+    """Message attachment (image) model."""
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    filename: str
+    mime_type: str
+    size_bytes: int
+    data_url: str  # base64-encoded data URL (e.g., "data:image/png;base64,...")
+
+
 class Message(BaseModel):
     """Message model."""
     id: str = Field(default_factory=lambda: str(uuid4()))
     conversation_id: str
     role: str  # 'user' or 'assistant'
     content: str
+    attachments: list[MessageAttachment] = Field(default_factory=list)
     sequence_number: int
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -97,6 +107,7 @@ class CreateMessageRequest(BaseModel):
     """Request to create a message."""
     role: str = Field(pattern="^(user|assistant)$")
     content: str
+    attachments: list[MessageAttachment] = Field(default_factory=list)
 
 
 class UpdateMessageRequest(BaseModel):

@@ -5,6 +5,8 @@ import { api } from '../api/client'
 import { DocumentIR, DocumentRequirements } from '../types/document'
 import DocumentConfigModal from '../components/DocumentConfigModal'
 import { DocumentBriefWizard } from '../components/DocumentBrief/DocumentBriefWizard'
+import ReviewWorkspace from '../components/review/ReviewWorkspace'
+import EditSectionDialog from '../components/review/EditSectionDialog'
 import type { DocumentBrief } from '../types/document_brief'
 
 export default function DocumentPage() {
@@ -16,6 +18,8 @@ export default function DocumentPage() {
   const [showConfigModal, setShowConfigModal] = useState(false)
   const [showBriefWizard, setShowBriefWizard] = useState(false)
   const [sourceBrief, setSourceBrief] = useState<DocumentBrief | null>(null)
+  // Section targeted by the AI-edit dialog (Phase 6).
+  const [editSection, setEditSection] = useState<{ id: string; title: string } | null>(null)
 
   useEffect(() => {
     if (id && id !== 'new') {
@@ -211,8 +215,17 @@ export default function DocumentPage() {
             <div className="prose max-w-none">
               <h1>{document.title}</h1>
               {document.content.map((section) => (
-                <div key={section.id} className="mb-6">
-                  {React.createElement(`h${section.level}`, {}, section.title)}
+                <div key={section.id} className="mb-6" id={`section-${section.id}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    {React.createElement(`h${section.level}`, {}, section.title)}
+                    <button
+                      type="button"
+                      onClick={() => setEditSection({ id: section.id, title: section.title })}
+                      className="shrink-0 mt-2 text-xs px-2 py-1 rounded border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    >
+                      ✨ Improve with AI
+                    </button>
+                  </div>
                   {section.blocks.map((block: any) => {
                     if (block.type === 'paragraph') {
                       return (
@@ -271,6 +284,15 @@ export default function DocumentPage() {
               ))}
             </div>
 
+            {/* Phase 6: review, compliance and version workspace (additive) */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <ReviewWorkspace
+                documentId={document.id}
+                sections={document.content.map((section) => ({ id: section.id, title: section.title }))}
+                onDocumentUpdated={() => loadDocument(document.id)}
+              />
+            </div>
+
             <div className="mt-8 pt-6 border-t border-gray-200 flex justify-center space-x-4">
               <button
                 onClick={handleReconfigure}
@@ -291,6 +313,17 @@ export default function DocumentPage() {
           </div>
         )}
       </div>
+
+      {/* Phase 6: AI edit dialog for a single section */}
+      {editSection && document && (
+        <EditSectionDialog
+          documentId={document.id}
+          sectionId={editSection.id}
+          sectionTitle={editSection.title}
+          onClose={() => setEditSection(null)}
+          onApplied={() => loadDocument(document.id)}
+        />
+      )}
 
       {/* Document Configuration Modal */}
       <DocumentConfigModal

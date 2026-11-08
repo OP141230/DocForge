@@ -1,6 +1,7 @@
 """Mock AI provider for testing and development."""
 import hashlib
 import json
+import re
 from typing import Dict, List, Optional
 
 from app.models.document_ir import (
@@ -183,6 +184,102 @@ class MockProvider(AIProvider):
             document.metadata.custom_fields["evidence_markers_offered"] = markers
 
         return document
+
+    # ------------------------------------------------------------------
+    # Phase 6: review / transform / compliance (offline, deterministic)
+    # ------------------------------------------------------------------
+
+    async def review_document(self, payload: Dict) -> Optional[Dict]:
+        """Deterministic stand-in for an LLM reviewer.
+
+        It flags two things it can honestly detect without understanding
+        language: sentences that are very long, and the misspelling "teh".
+        Tests use this to exercise the AI code path end-to-end offline, and the
+        service still validates every quote against the document.
+        """
+        text = payload.get("text", "")
+        categories = set(payload.get("categories") or [])
+        findings: List[Dict] = []
+
+        for sentence in re.split(r"(?<=[.!?])\s+", text):
+            clean = sentence.strip()
+            if not clean:
+                continue
+            if "clarity" in categories and len(clean.split()) > 35:
+                findings.append(
+                    {
+                        "category": "clarity",
+                        "severity": "low",
+                        "title": "Long sentence",
+                        "explanation": (
+                            "This sentence runs past 35 words, which makes it harder to follow."
+                        ),
+                        "original_text": clean[:400],
+                        "suggested_text": None,
+                    }
+                )
+            marker = re.search(r"\bteh\b", clean)
+            if marker and ("spelling" in categories or "grammar" in categories):
+                findings.append(
+                    {
+                        "category": "spelling",
+                        "severity": "high",
+                        "title": "Misspelling: teh",
+                        "explanation": '"teh" should be "the".',
+                        "original_text": "teh",
+                        "suggested_text": "the",
+                    }
+                )
+
+        return {"findings": findings[:25]}
+
+    async def transform_text(self, payload: Dict) -> Optional[str]:
+        """Deterministic rewrite that always preserves citation markers."""
+        text = (payload.get("text") or "").strip()
+        if not text:
+            return None
+        instruction = (payload.get("instruction") or "").lower()
+
+        if "summarize" in instruction:
+            sentences = re.split(r"(?<=[.!?])\s+", text)
+            return sentences[0].strip() if sentences else text
+
+        if "bullet" in instruction:
+            parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", text) if part.strip()]
+            return "\n".join(f"- {part}" for part in parts)
+
+        # Default: tidy whitespace and capitalise the first character. Textual
+        # content is unchanged, which is exactly what makes this safe to compare
+        # in tests (citation markers survive untouched).
+        tidy = re.sub(r"[ \t]+", " ", text).strip()
+        if not tidy:
+            return None
+        polished = tidy[0].upper() + tidy[1:]
+        if polished == text:
+            # The caller's text was already tidy. A real editor usually still
+            # changes something; returning the input unchanged would make the
+            # service reject the proposal as a no-op, so add one neutral
+            # sentence that introduces no factual claim.
+            polished = f"{tidy} This passage was revised for clarity."
+        return polished
+
+    async def assess_compliance(self, payload: Dict) -> Optional[Dict]:
+        """Be explicit that the mock cannot judge qualitative requirements."""
+        requirements = payload.get("requirements") or []
+        return {
+            "results": [
+                {
+                    "requirement": requirement,
+                    "status": "needs_review",
+                    "explanation": (
+                        "The configured AI provider is the offline mock, so this subjective "
+                        "requirement was not assessed."
+                    ),
+                    "suggested_action": "Review this requirement manually.",
+                }
+                for requirement in requirements
+            ]
+        }
 
     def _generate_paragraph_text(self, section: str, topic: str, seed: int) -> str:
         """Generate deterministic paragraph text."""

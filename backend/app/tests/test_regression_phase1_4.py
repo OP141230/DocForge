@@ -61,6 +61,8 @@ async def seed_brief(db, user_id, *, approved: bool = True):
             "outline_approved": approved,
         },
     )
+    # Refresh the in-memory object: after repo.update() the in-memory row can be
+    # stale, and the route looks it up through the shared Database.
     return await repo.get_by_id(brief.id, user_id)
 
 

@@ -53,7 +53,7 @@ export default function ConversationPage() {
   }
 
   const handleSendMessage = async () => {
-    if (!input.trim() || !id || loading) return
+    if ((!input.trim() && attachedImages.length === 0) || !id || loading) return
 
     const userMessage = input.trim()
     setInput('')
@@ -61,26 +61,81 @@ export default function ConversationPage() {
     setError(null)
 
     try {
-      // Create user message
-      const newUserMsg = await api.createMessage(id, 'user', userMessage)
+      // Convert images to base64 data URLs
+      const imageAttachments = await Promise.all(
+        attachedImages.map(async (file) => {
+          return new Promise<{ filename: string; mime_type: string; size_bytes: number; data_url: string }>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              resolve({
+                filename: file.name,
+                mime_type: file.type,
+                size_bytes: file.size,
+                data_url: reader.result as string,
+              })
+            }
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
+        })
+      )
+
+      // Clear attached images after reading
+      setAttachedImages([])
+      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url))
+      setImagePreviewUrls([])
+
+      // Create user message with attachments
+      const newUserMsg = await api.createMessage(id, 'user', userMessage || '(image)', imageAttachments)
       setMessages(prev => [...prev, newUserMsg])
 
-      // Generate response using the generation API
-      const outlineResponse = await api.generateOutline({
-        document_type: 'general_report',
-        topic: userMessage,
-        title: userMessage.split('.')[0] || userMessage.substring(0, 50),
-        tone: 'professional',
-        language: 'en',
-        length: 'medium',
-      })
+      // Check if OCR extracted text from images
+      const hasOcrText = newUserMsg.content.includes('**Extracted text from images:**')
+      
+      // Generate response based on whether images are present
+      let responseText = ''
+      
+      if (imageAttachments.length > 0) {
+        // User sent images
+        const imageCount = imageAttachments.length
+        const imageWord = imageCount === 1 ? 'image' : 'images'
+        
+        if (hasOcrText) {
+          // OCR successfully extracted text
+          responseText = `✅ I've extracted text from your ${imageWord}!\n\n` +
+            `I can see the content now. You can:\n\n` +
+            `1. Ask me questions about the content\n` +
+            `2. Click **"📄 Generate Document"** to create a study guide, report, or document based on this content\n` +
+            `3. Add more details or context if needed\n\n` +
+            `💡 The extracted text is included in our conversation, so I can help you with it!`
+        } else {
+          // OCR didn't find text (maybe blank image, or non-text image)
+          responseText = `I received your ${imageWord}, but couldn't extract any text from it. This might be because:\n\n` +
+            `• The image is a photo/diagram without text\n` +
+            `• The text is handwritten or stylized\n` +
+            `• The image quality is too low\n\n` +
+            `You can:\n` +
+            `1. Describe what's in the ${imageWord}\n` +
+            `2. Upload a clearer image if available\n` +
+            `3. Type the key points you want to document`
+        }
+      } else {
+        // Text-only message - generate outline as before
+        const outlineResponse = await api.generateOutline({
+          document_type: 'general_report',
+          topic: userMessage,
+          title: userMessage.split('.')[0] || userMessage.substring(0, 50),
+          tone: 'professional',
+          language: 'en',
+          length: 'medium',
+        })
 
-      // Create a simple text response from the outline
-      const responseText = `I understand you want to create a document about: "${userMessage}"\n\nI've prepared an outline:\n\n` +
-        outlineResponse.outline.map((item: any, i: number) => 
-          `${'  '.repeat(item.level - 1)}${i + 1}. ${item.title}`
-        ).join('\n') +
-        '\n\nWould you like me to generate the full document based on this outline?'
+        responseText = `I understand you want to create a document about: "${userMessage}"\n\nI've prepared an outline:\n\n` +
+          outlineResponse.outline.map((item: any, i: number) => 
+            `${'  '.repeat(item.level - 1)}${i + 1}. ${item.title}`
+          ).join('\n') +
+          '\n\nWould you like me to generate the full document based on this outline?'
+      }
 
       // Create assistant message
       const assistantMsg = await api.createMessage(id, 'assistant', responseText)
@@ -180,12 +235,41 @@ export default function ConversationPage() {
     setShowConfigModal(false)
 
     try {
+      // Collect all images from conversation messages
+      const allImages: string[] = []
+      messages.forEach(msg => {
+        if (msg.attachments && msg.attachments.length > 0) {
+          msg.attachments.forEach(att => {
+            allImages.push(att.data_url)
+          })
+        }
+      })
+
+      // Extract all text from conversation for context
+      const conversationText = messages
+        .filter(m => m.role === 'user' && m.content && m.content !== '(image)')
+        .map(m => m.content)
+        .join('\n')
+
+      // Enhance requirements with conversation context and images
+      const enhancedRequirements = {
+        ...requirements,
+        // Append conversation context to topic
+        topic: conversationText 
+          ? `${requirements.topic}\n\nAdditional context from conversation:\n${conversationText}` 
+          : requirements.topic,
+        // Add note about images if present
+        additional_instructions: allImages.length > 0
+          ? `${requirements.additional_instructions || ''}\n\nIMPORTANT: The user has provided ${allImages.length} image(s) in the conversation. Please analyze and incorporate the information from these images into the document content.`
+          : requirements.additional_instructions
+      }
+
       // Generate outline and content
-      const outlineResponse = await api.generateOutline(requirements)
+      const outlineResponse = await api.generateOutline(enhancedRequirements)
 
       const doc = await api.generateContent(
         outlineResponse.outline,
-        requirements
+        enhancedRequirements
       )
 
       const created = await api.createDocument(doc)
@@ -202,6 +286,7 @@ export default function ConversationPage() {
 
   const openGenerateDocumentModal = () => {
     // Modal will auto-populate from initialConfig prop
+    // Images from conversation will be included automatically via handleGenerateDocument
     setShowConfigModal(true)
   }
 
@@ -293,9 +378,33 @@ export default function ConversationPage() {
                   <div className="text-xs font-semibold mb-1 opacity-75">
                     {message.role === 'user' ? 'You' : 'Assistant'}
                   </div>
-                  <div className="whitespace-pre-wrap break-words">
-                    {message.content}
-                  </div>
+                  
+                  {/* Message text */}
+                  {message.content && (
+                    <div className="whitespace-pre-wrap break-words">
+                      {message.content}
+                    </div>
+                  )}
+
+                  {/* Image attachments */}
+                  {message.attachments && message.attachments.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {message.attachments.map((attachment, idx) => (
+                        <div key={attachment.id || idx} className="mt-2">
+                          <img
+                            src={attachment.data_url}
+                            alt={attachment.filename}
+                            className="rounded-lg max-w-full h-auto border border-gray-300"
+                            style={{ maxHeight: '300px' }}
+                          />
+                          <div className="text-xs mt-1 opacity-60">
+                            {attachment.filename} ({(attachment.size_bytes / 1024).toFixed(1)} KB)
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="text-xs mt-2 opacity-60">
                     {new Date(message.created_at).toLocaleTimeString()}
                   </div>
@@ -386,7 +495,7 @@ export default function ConversationPage() {
             />
             <button
               onClick={handleSendMessage}
-              disabled={!input.trim() || loading}
+              disabled={(!input.trim() && attachedImages.length === 0) || loading}
               className="btn-primary px-6 py-3 whitespace-nowrap"
             >
               {loading ? 'Sending...' : 'Send'}

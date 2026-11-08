@@ -10,7 +10,7 @@ from app.models.document_brief import (
     UpdateOutlineRequest,
     OutlineItem,
 )
-from app.models.generation import DocumentRequirements, OutlineResponse
+from app.models.generation import DocumentRequirements, OutlineItem as GenerationOutlineItem, OutlineResponse
 from app.models.document_ir import DocumentIR
 from app.models.auth import User
 from app.core.database import get_database
@@ -348,7 +348,15 @@ async def generate_document(
 
         # Generate document using AI provider
         provider = get_provider()
-        outline_response = OutlineResponse(outline=brief.outline)
+        # `brief.outline` uses the DocumentBrief OutlineItem model, while
+        # OutlineResponse is typed with the generation OutlineItem. Pydantic v2
+        # does not coerce one BaseModel into another, so translate explicitly.
+        outline_response = OutlineResponse(
+            outline=[
+                GenerationOutlineItem(level=item.level, title=item.title)
+                for item in brief.outline
+            ]
+        )
         
         if attached_files or evidence_items:
             # Build search query from brief
