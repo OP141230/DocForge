@@ -12,6 +12,7 @@ aiosqlite>=0.19.0
 python-docx>=1.0.0
 reportlab>=4.0.0
 markdown>=3.4.0
+sympy>=1.12
 
 # Phase 4: Text Extraction
 pypdf2>=3.0.0

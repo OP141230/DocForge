@@ -2,6 +2,7 @@
 from io import BytesIO
 from typing import List, Optional
 from pathlib import Path
+import re
 
 from reportlab.lib.pagesizes import letter, A4, legal
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -13,8 +14,170 @@ from reportlab.platypus import (
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
 
+try:
+    from sympy import sympify, pretty
+    from sympy.parsing.latex import parse_latex
+    SYMPY_AVAILABLE = True
+except ImportError:
+    SYMPY_AVAILABLE = False
+
 from app.models.document_ir import DocumentIR, Section, InlineContent, PageLayout
 from .base import Exporter
+
+
+def latex_to_unicode(latex_str: str) -> str:
+    """
+    Convert LaTeX mathematical expression to Unicode mathematical symbols.
+    
+    Args:
+        latex_str: LaTeX equation string
+        
+    Returns:
+        Unicode representation with mathematical symbols, or formatted LaTeX as fallback
+    """
+    if not latex_str or not latex_str.strip():
+        return ""
+    
+    # If sympy is not available, fall back to formatted LaTeX
+    if not SYMPY_AVAILABLE:
+        return _format_latex_fallback(latex_str)
+    
+    try:
+        # Try parsing with sympy's LaTeX parser
+        expr = parse_latex(latex_str)
+        
+        # Convert to Unicode using sympy's pretty printer
+        unicode_str = pretty(expr, use_unicode=True)
+        
+        # If the result is multiline (for complex expressions), return it
+        if '\n' in unicode_str:
+            return unicode_str
+        
+        # For single-line expressions, clean up extra spaces
+        return unicode_str.strip()
+        
+    except Exception as e:
+        # If parsing fails, try manual conversion for common patterns
+        try:
+            return _manual_latex_to_unicode(latex_str)
+        except:
+            # Final fallback: return formatted LaTeX
+            return _format_latex_fallback(latex_str)
+
+
+def _manual_latex_to_unicode(latex_str: str) -> str:
+    """
+    Manually convert common LaTeX patterns to Unicode.
+    Handles superscripts, subscripts, fractions, Greek letters, and common symbols.
+    """
+    result = latex_str
+    
+    # Greek letters mapping
+    greek_letters = {
+        r'\alpha': 'α', r'\beta': 'β', r'\gamma': 'γ', r'\delta': 'δ',
+        r'\epsilon': 'ε', r'\zeta': 'ζ', r'\eta': 'η', r'\theta': 'θ',
+        r'\iota': 'ι', r'\kappa': 'κ', r'\lambda': 'λ', r'\mu': 'μ',
+        r'\nu': 'ν', r'\xi': 'ξ', r'\pi': 'π', r'\rho': 'ρ',
+        r'\sigma': 'σ', r'\tau': 'τ', r'\upsilon': 'υ', r'\phi': 'φ',
+        r'\chi': 'χ', r'\psi': 'ψ', r'\omega': 'ω',
+        r'\Gamma': 'Γ', r'\Delta': 'Δ', r'\Theta': 'Θ', r'\Lambda': 'Λ',
+        r'\Xi': 'Ξ', r'\Pi': 'Π', r'\Sigma': 'Σ', r'\Phi': 'Φ',
+        r'\Psi': 'Ψ', r'\Omega': 'Ω'
+    }
+    
+    # Replace Greek letters
+    for latex, unicode_char in greek_letters.items():
+        result = result.replace(latex, unicode_char)
+    
+    # Common math symbols
+    math_symbols = {
+        r'\infty': '∞', r'\pm': '±', r'\mp': '∓',
+        r'\times': '×', r'\div': '÷', r'\cdot': '·',
+        r'\leq': '≤', r'\geq': '≥', r'\neq': '≠',
+        r'\approx': '≈', r'\equiv': '≡', r'\propto': '∝',
+        r'\sum': '∑', r'\prod': '∏', r'\int': '∫',
+        r'\partial': '∂', r'\nabla': '∇', r'\sqrt': '√',
+        r'\in': '∈', r'\notin': '∉', r'\subset': '⊂',
+        r'\supset': '⊃', r'\cap': '∩', r'\cup': '∪',
+        r'\forall': '∀', r'\exists': '∃', r'\neg': '¬',
+        r'\wedge': '∧', r'\vee': '∨', r'\rightarrow': '→',
+        r'\leftarrow': '←', r'\leftrightarrow': '↔',
+        r'\Rightarrow': '⇒', r'\Leftarrow': '⇐', r'\Leftrightarrow': '⇔'
+    }
+    
+    for latex, unicode_char in math_symbols.items():
+        result = result.replace(latex, unicode_char)
+    
+    # Superscripts (Unicode superscript characters)
+    superscript_map = {
+        '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+        '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+        '+': '⁺', '-': '⁻', '=': '⁼', '(': '⁽', ')': '⁾',
+        'n': 'ⁿ', 'i': 'ⁱ'
+    }
+    
+    # Subscripts (Unicode subscript characters)
+    subscript_map = {
+        '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄',
+        '5': '₅', '6': '₆', '7': '₇', '8': '₈', '9': '₉',
+        '+': '₊', '-': '₋', '=': '₌', '(': '₍', ')': '₎',
+        'a': 'ₐ', 'e': 'ₑ', 'o': 'ₒ', 'x': 'ₓ', 'h': 'ₕ',
+        'k': 'ₖ', 'l': 'ₗ', 'm': 'ₘ', 'n': 'ₙ', 'p': 'ₚ',
+        's': 'ₛ', 't': 'ₜ'
+    }
+    
+    # Convert superscripts: ^{...} or ^x
+    def replace_superscript(match):
+        content = match.group(1) if match.group(1) else match.group(2)
+        return ''.join(superscript_map.get(c, f'^{c}') for c in content)
+    
+    result = re.sub(r'\^{([^}]+)}|\^(.)', replace_superscript, result)
+    
+    # Convert subscripts: _{...} or _x
+    def replace_subscript(match):
+        content = match.group(1) if match.group(1) else match.group(2)
+        return ''.join(subscript_map.get(c, f'_{c}') for c in content)
+    
+    result = re.sub(r'_{([^}]+)}|_(.)', replace_subscript, result)
+    
+    # Handle fractions \frac{a}{b}
+    def replace_fraction(match):
+        numerator = match.group(1)
+        denominator = match.group(2)
+        return f"({numerator})/({denominator})"
+    
+    result = re.sub(r'\\frac{([^}]+)}{([^}]+)}', replace_fraction, result)
+    
+    # Handle square root \sqrt{x} or \sqrt[n]{x}
+    def replace_sqrt(match):
+        root = match.group(1) if match.group(1) else None
+        content = match.group(2)
+        if root:
+            return f"{root}√({content})"
+        return f"√({content})"
+    
+    result = re.sub(r'\\sqrt(?:\[([^\]]+)\])?{([^}]+)}', replace_sqrt, result)
+    
+    # Clean up remaining braces
+    result = result.replace('{', '').replace('}', '')
+    
+    # Clean up backslashes from unrecognized commands
+    result = re.sub(r'\\([a-zA-Z]+)', r'\1', result)
+    
+    return result
+
+
+def _format_latex_fallback(latex_str: str) -> str:
+    """
+    Format LaTeX string for display when conversion is not possible.
+    Makes it more readable by cleaning up LaTeX commands.
+    """
+    # Remove common LaTeX delimiters
+    result = latex_str.strip()
+    for delimiter in ['$$', '$', '\\[', '\\]', '\\(', '\\)']:
+        result = result.replace(delimiter, '')
+    
+    return f"LaTeX: {result.strip()}"
 
 
 class PDFExporter(Exporter):
@@ -261,6 +424,102 @@ class PDFExporter(Exporter):
             elif block.type == "page_break":
                 # Add page break
                 elements.append(PageBreak())
+            
+            elif block.type == "math_equation":
+                # Convert LaTeX to Unicode mathematical symbols
+                unicode_math = latex_to_unicode(block.equation)
+                
+                # Check if the result is multiline (complex expression)
+                is_multiline = '\n' in unicode_math
+                
+                if is_multiline:
+                    # For complex multiline expressions, use preformatted style
+                    math_style = ParagraphStyle(
+                        'MathEquation',
+                        parent=styles['Code'],
+                        fontSize=11,
+                        fontName='Courier',
+                        alignment=TA_CENTER if block.display_mode else TA_LEFT,
+                        borderColor=colors.HexColor('#e8e8e8'),
+                        borderWidth=1,
+                        borderPadding=10,
+                        backColor=colors.HexColor('#f9f9f9'),
+                        spaceAfter=12
+                    )
+                    
+                    # Render each line separately to preserve formatting
+                    lines = unicode_math.split('\n')
+                    for line in lines:
+                        # Escape XML characters but preserve unicode math
+                        safe_line = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                        elements.append(Paragraph(safe_line or ' ', math_style))
+                else:
+                    # For single-line expressions, use a cleaner style
+                    math_style = ParagraphStyle(
+                        'MathEquationInline',
+                        parent=styles['Normal'],
+                        fontSize=12,
+                        alignment=TA_CENTER if block.display_mode else TA_LEFT,
+                        borderColor=colors.HexColor('#e8e8e8'),
+                        borderWidth=1,
+                        borderPadding=8,
+                        backColor=colors.HexColor('#f9f9f9'),
+                        spaceAfter=12,
+                        spaceBefore=6
+                    )
+                    
+                    # Escape XML characters but preserve unicode math
+                    safe_math = unicode_math.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    
+                    # Add label if present
+                    if block.label:
+                        safe_math = f"{safe_math}  <i>({block.label})</i>"
+                    
+                    elements.append(Paragraph(safe_math, math_style))
+                
+                elements.append(Spacer(1, 0.1 * inch))
+            
+            elif block.type == "diagram":
+                # Render diagram description
+                # For Mermaid rendering, we'd need a Mermaid-to-image converter
+                # For now, display the diagram code in a formatted box
+                diagram_style = ParagraphStyle(
+                    'Diagram',
+                    parent=styles['Code'],
+                    fontSize=9,
+                    fontName='Courier',
+                    borderColor=colors.HexColor('#d0e8f0'),
+                    borderWidth=1,
+                    borderPadding=10,
+                    backColor=colors.HexColor('#f0f8ff'),
+                )
+                
+                diagram_text = f"[{block.diagram_type.title()} Diagram]"
+                elements.append(Paragraph(diagram_text, ParagraphStyle(
+                    'DiagramTitle',
+                    parent=styles['Normal'],
+                    fontSize=11,
+                    textColor=colors.HexColor('#2c3e50'),
+                    spaceAfter=6
+                )))
+                
+                # Add the Mermaid code
+                code_lines = block.mermaid_code.split('\n')
+                for line in code_lines:
+                    elements.append(Paragraph(line or ' ', diagram_style))
+                
+                if block.caption:
+                    caption_style = ParagraphStyle(
+                        'DiagramCaption',
+                        parent=styles['Normal'],
+                        fontSize=9,
+                        textColor=colors.grey,
+                        alignment=TA_CENTER,
+                        spaceAfter=12
+                    )
+                    elements.append(Paragraph(block.caption, caption_style))
+                
+                elements.append(Spacer(1, 0.1 * inch))
         
         return elements
     
