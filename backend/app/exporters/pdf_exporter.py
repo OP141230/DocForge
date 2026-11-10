@@ -25,6 +25,64 @@ from app.models.document_ir import DocumentIR, Section, InlineContent, PageLayou
 from .base import Exporter
 
 
+def parse_inline_latex(text: str) -> str:
+    """
+    Parse and convert inline LaTeX expressions in text to Unicode.
+    Detects patterns like \(...\), $$...$$, $...$, \[...\], and \begin{...}...\end{...}
+    
+    Args:
+        text: Text containing inline LaTeX expressions
+        
+    Returns:
+        Text with LaTeX converted to Unicode mathematical symbols
+    """
+    if not text:
+        return text
+    
+    result = text
+    
+    # Pattern for \(...\) inline math
+    result = re.sub(
+        r'\\\((.+?)\\\)',
+        lambda m: latex_to_unicode(m.group(1)),
+        result,
+        flags=re.DOTALL
+    )
+    
+    # Pattern for $$...$$ display math
+    result = re.sub(
+        r'\$\$(.+?)\$\$',
+        lambda m: latex_to_unicode(m.group(1)),
+        result,
+        flags=re.DOTALL
+    )
+    
+    # Pattern for $...$ inline math
+    result = re.sub(
+        r'\$([^\$]+?)\$',
+        lambda m: latex_to_unicode(m.group(1)),
+        result
+    )
+    
+    # Pattern for \[...\] display math
+    result = re.sub(
+        r'\\\[(.+?)\\\]',
+        lambda m: latex_to_unicode(m.group(1)),
+        result,
+        flags=re.DOTALL
+    )
+    
+    # Pattern for \begin{bmatrix}...\end{bmatrix} and similar environments
+    result = re.sub(
+        r'\\begin\{(bmatrix|pmatrix|matrix|equation|align|cases)\}(.+?)\\end\{\1\}',
+        lambda m: latex_to_unicode(m.group(2)),
+        result,
+        flags=re.DOTALL
+    )
+    
+    return result
+
+
 def latex_to_unicode(latex_str: str) -> str:
     """
     Convert LaTeX mathematical expression to Unicode mathematical symbols.
@@ -68,9 +126,13 @@ def latex_to_unicode(latex_str: str) -> str:
 def _manual_latex_to_unicode(latex_str: str) -> str:
     """
     Manually convert common LaTeX patterns to Unicode.
-    Handles superscripts, subscripts, fractions, Greek letters, and common symbols.
+    Handles superscripts, subscripts, fractions, Greek letters, matrices, and common symbols.
     """
     result = latex_str
+    
+    # Remove common LaTeX delimiters if they appear
+    for delimiter in [r'\(', r'\)', r'\[', r'\]']:
+        result = result.replace(delimiter, '')
     
     # Greek letters mapping
     greek_letters = {
@@ -157,6 +219,41 @@ def _manual_latex_to_unicode(latex_str: str) -> str:
         return f"√({content})"
     
     result = re.sub(r'\\sqrt(?:\[([^\]]+)\])?{([^}]+)}', replace_sqrt, result)
+    
+    # Handle matrix environments
+    # \begin{bmatrix}...\end{bmatrix} -> [...]
+    # \begin{pmatrix}...\end{pmatrix} -> (...)
+    def replace_matrix(match):
+        matrix_type = match.group(1)
+        content = match.group(2).strip()
+        
+        # Parse matrix rows (separated by \\)
+        rows = [row.strip() for row in content.split('\\\\')]
+        
+        # Parse matrix elements (separated by &)
+        matrix_rows = []
+        for row in rows:
+            if row:
+                elements = [elem.strip() for elem in row.split('&')]
+                matrix_rows.append(elements)
+        
+        # Format as Unicode matrix
+        if matrix_type == 'bmatrix':
+            open_bracket, close_bracket = '[', ']'
+        elif matrix_type == 'pmatrix':
+            open_bracket, close_bracket = '(', ')'
+        else:
+            open_bracket, close_bracket = '', ''
+        
+        formatted_rows = [' '.join(row) for row in matrix_rows]
+        return f"{open_bracket} {'; '.join(formatted_rows)} {close_bracket}"
+    
+    result = re.sub(
+        r'\\begin\{(bmatrix|pmatrix|matrix)\}(.+?)\\end\{\1\}',
+        replace_matrix,
+        result,
+        flags=re.DOTALL
+    )
     
     # Clean up remaining braces
     result = result.replace('{', '').replace('}', '')
@@ -554,7 +651,9 @@ class PDFExporter(Exporter):
         """Format inline content for PDF with ReportLab markup."""
         result = []
         for item in content:
-            text = item.text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            # Parse and convert inline LaTeX expressions BEFORE escaping
+            text = parse_inline_latex(item.text)
+            text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             
             # Build inline styles
             font_tags = []

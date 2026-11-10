@@ -182,6 +182,88 @@ class DOCXExporter(Exporter):
             elif block.type == "page_break":
                 # Add page break
                 doc.add_page_break()
+            
+            elif block.type == "math_equation":
+                # Convert LaTeX to Unicode for better rendering
+                # Import here to avoid circular dependencies
+                from .pdf_exporter import latex_to_unicode
+                
+                try:
+                    # Convert LaTeX equation to Unicode
+                    unicode_equation = latex_to_unicode(block.equation)
+                    
+                    para = doc.add_paragraph()
+                    
+                    # Add equation label if present
+                    if block.label:
+                        label_run = para.add_run(f"[{block.label}] ")
+                        label_run.font.size = Pt(9)
+                        label_run.font.color.rgb = RGBColor(128, 128, 128)
+                    
+                    # Add the equation itself (now in Unicode)
+                    eq_run = para.add_run(unicode_equation)
+                    eq_run.font.name = 'Cambria Math'
+                    eq_run.font.size = Pt(11)
+                    
+                    # Center if display mode
+                    if block.display_mode:
+                        para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+                        # Add some spacing
+                        para.paragraph_format.space_before = Pt(6)
+                        para.paragraph_format.space_after = Pt(6)
+                    
+                    # Add visual distinction
+                    para.paragraph_format.left_indent = Pt(18)
+                    para.paragraph_format.right_indent = Pt(18)
+                    
+                except Exception as e:
+                    # Fallback: render as plain text if conversion fails
+                    para = doc.add_paragraph()
+                    if block.label:
+                        label_run = para.add_run(f"[{block.label}] ")
+                        label_run.font.size = Pt(9)
+                        label_run.font.color.rgb = RGBColor(128, 128, 128)
+                    
+                    eq_run = para.add_run(block.equation)
+                    eq_run.font.name = 'Courier New'
+                    eq_run.font.size = Pt(10)
+                    
+                    if block.display_mode:
+                        para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+            
+            elif block.type == "diagram":
+                # Render diagram description
+                # Word doesn't support Mermaid directly, so we'll add a formatted text representation
+                
+                # Add diagram title
+                title_para = doc.add_paragraph()
+                title_run = title_para.add_run(f"[{block.diagram_type.title()} Diagram]")
+                title_run.font.bold = True
+                title_run.font.size = Pt(11)
+                title_run.font.color.rgb = RGBColor(44, 62, 80)
+                
+                # Add the Mermaid code in a formatted block
+                code_para = doc.add_paragraph(block.mermaid_code)
+                code_para.runs[0].font.name = 'Courier New'
+                code_para.runs[0].font.size = Pt(9)
+                code_para.paragraph_format.left_indent = Pt(36)
+                code_para.paragraph_format.space_before = Pt(6)
+                code_para.paragraph_format.space_after = Pt(6)
+                
+                # Add shading/background
+                from docx.oxml.shared import OxmlElement
+                from docx.oxml.ns import qn
+                shading_elm = OxmlElement('w:shd')
+                shading_elm.set(qn('w:fill'), 'F0F8FF')
+                code_para._element.get_or_add_pPr().append(shading_elm)
+                
+                # Add caption if present
+                if block.caption:
+                    caption_para = doc.add_paragraph(block.caption)
+                    caption_para.runs[0].font.size = Pt(9)
+                    caption_para.runs[0].font.italic = True
+                    caption_para.runs[0].font.color.rgb = RGBColor(128, 128, 128)
+                    caption_para.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
     
     def _resolve_image_path(self, url: str) -> str:
         """Resolve image URL to local file path."""
@@ -204,8 +286,13 @@ class DOCXExporter(Exporter):
     
     def _add_inline_content(self, paragraph, content: List[InlineContent]):
         """Add inline content to a paragraph with formatting."""
+        # Import here to avoid circular dependencies
+        from .pdf_exporter import parse_inline_latex
+        
         for item in content:
-            run = paragraph.add_run(item.text)
+            # Parse and convert inline LaTeX expressions
+            text = parse_inline_latex(item.text)
+            run = paragraph.add_run(text)
             
             # Basic formatting
             if item.bold:
