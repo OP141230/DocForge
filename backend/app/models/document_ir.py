@@ -110,8 +110,24 @@ class PageBreak(Block):
     type: Literal["page_break"] = "page_break"
 
 
+class MathEquation(Block):
+    """Mathematical equation block (LaTeX format)."""
+    type: Literal["math_equation"] = "math_equation"
+    equation: str  # LaTeX equation (e.g., "E = mc^2", "\\frac{a}{b}")
+    display_mode: bool = True  # True for block (centered), False for inline
+    label: Optional[str] = None  # Optional equation label/number
+
+
+class Diagram(Block):
+    """Diagram block (using Mermaid syntax)."""
+    type: Literal["diagram"] = "diagram"
+    diagram_type: str  # flowchart, sequence, class, state, gantt, etc.
+    mermaid_code: str  # Mermaid diagram definition
+    caption: Optional[str] = None  # Diagram caption
+
+
 # Union of all block types for validation
-BlockType = Union[Paragraph, Heading, ListBlock, Quote, CodeBlock, Table, Image, PageBreak]
+BlockType = Union[Paragraph, Heading, ListBlock, Quote, CodeBlock, Table, Image, PageBreak, MathEquation, Diagram]
 
 
 class Section(BaseModel):

@@ -167,11 +167,36 @@ async def create_message(
             attachments=request.attachments
         )
         
+        # FIX #3: Auto-name conversation from first user message
+        if next_sequence == 1 and request.role == "user" and enhanced_content:
+            # Generate title from first message (first 50 chars)
+            title = _generate_title_from_message(enhanced_content)
+            await conv_repo.update_title(conversation_id, title, user_id=current_user.id)
+        
         return message
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create message: {str(e)}")
+
+
+def _generate_title_from_message(content: str) -> str:
+    """Generate conversation title from message content."""
+    # Clean and truncate content
+    title = content.strip()[:50].strip()
+    
+    # Remove line breaks
+    title = " ".join(title.split())
+    
+    # Add ellipsis if truncated
+    if len(content) > 50:
+        title += "..."
+    
+    # Capitalize first letter
+    if title:
+        title = title[0].upper() + title[1:]
+    
+    return title if title else "New Conversation"
 
 
 @router.get("/conversations/{conversation_id}/messages")

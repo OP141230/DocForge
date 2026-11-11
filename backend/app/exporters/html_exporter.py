@@ -29,6 +29,13 @@ class HTMLExporter(Exporter):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{escape(document.title)}</title>
+    <!-- MathJax for LaTeX equations -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Mermaid for diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({{ startOnLoad: true, theme: 'default' }});</script>
+    
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -58,6 +65,44 @@ class HTMLExporter(Exporter):
         figure.align-right {{ text-align: right; }}
         figcaption {{ font-size: 0.9rem; color: #666; font-style: italic; margin-top: 0.5rem; }}
         img {{ max-width: 100%; height: auto; }}
+        
+        /* Math equation styling */
+        .math-equation {{ 
+            margin: 1.5rem 0; 
+            padding: 1rem; 
+            background-color: #f9f9f9; 
+            border: 1px solid #e8e8e8; 
+            border-radius: 5px; 
+            overflow-x: auto;
+        }}
+        .math-equation.inline {{ 
+            display: inline-block; 
+            margin: 0 0.2rem; 
+            padding: 0.2rem 0.5rem; 
+        }}
+        .math-equation .equation-label {{ 
+            font-size: 0.85rem; 
+            color: #666; 
+            margin-top: 0.5rem; 
+        }}
+        
+        /* Diagram styling */
+        .diagram-container {{ 
+            margin: 1.5rem 0; 
+            padding: 1rem; 
+            background-color: #f0f8ff; 
+            border: 1px solid #d0e8f0; 
+            border-radius: 5px; 
+        }}
+        .diagram-container .diagram-title {{ 
+            font-weight: bold; 
+            color: #2c3e50; 
+            margin-bottom: 0.5rem; 
+        }}
+        .mermaid {{ 
+            text-align: center; 
+        }}
+        
         @media print {{
             [style*="page-break-after: always"] {{ page-break-after: always; }}
         }}
@@ -149,6 +194,27 @@ class HTMLExporter(Exporter):
             elif block.type == "page_break":
                 # Page break for print media
                 html += '    <div style="page-break-after: always;"></div>\n'
+            
+            elif block.type == "math_equation":
+                # Render LaTeX math equation using MathJax
+                display_class = "math-equation" if block.display_mode else "math-equation inline"
+                delimiter = "$$" if block.display_mode else "\\("
+                end_delimiter = "$$" if block.display_mode else "\\)"
+                
+                html += f'    <div class="{display_class}">\n'
+                html += f'        {delimiter}{escape(block.equation)}{end_delimiter}\n'
+                if block.label:
+                    html += f'        <div class="equation-label">{escape(block.label)}</div>\n'
+                html += '    </div>\n'
+            
+            elif block.type == "diagram":
+                # Render diagram using Mermaid
+                html += '    <div class="diagram-container">\n'
+                html += f'        <div class="diagram-title">{escape(block.diagram_type.title())} Diagram</div>\n'
+                html += f'        <div class="mermaid">\n{escape(block.mermaid_code)}\n        </div>\n'
+                if block.caption:
+                    html += f'        <figcaption>{escape(block.caption)}</figcaption>\n'
+                html += '    </div>\n'
         
         return html
     

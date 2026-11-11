@@ -189,31 +189,6 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Create Buttons */}
-        <div className="mb-8 flex space-x-4">
-          <button
-            onClick={createNewConversation}
-            className="btn-primary text-lg px-6 py-3 shadow-lg hover:shadow-xl flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            <span>New Conversation</span>
-          </button>
-          <button
-            onClick={createNewDocument}
-            className="btn-secondary text-lg px-6 py-3 shadow-lg hover:shadow-xl flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Quick Document</span>
-          </button>
-          <button
-            onClick={() => navigate('/briefs')}
-            className="btn-secondary text-lg px-6 py-3 shadow-lg hover:shadow-xl border-2 border-blue-600 flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            <span>Document Brief</span>
-          </button>
-        </div>
-
         {/* Content Area */}
         {loading ? (
           <div className="text-center py-12">
@@ -225,6 +200,15 @@ export default function DashboardPage() {
             {/* Conversations Tab */}
             {activeTab === 'conversations' && (
               <>
+                <div className="mb-6">
+                  <button
+                    onClick={createNewConversation}
+                    className="btn-primary text-lg px-6 py-3 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>New Conversation</span>
+                  </button>
+                </div>
                 {conversations.length === 0 ? (
                   <div className="bg-white rounded-lg shadow-md p-12 text-center">
                     <MessageSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -264,6 +248,15 @@ export default function DashboardPage() {
             {/* Documents Tab */}
             {activeTab === 'documents' && (
               <>
+                <div className="mb-6">
+                  <button
+                    onClick={createNewDocument}
+                    className="btn-primary text-lg px-6 py-3 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Quick Document</span>
+                  </button>
+                </div>
                 {documents.length === 0 ? (
                   <div className="bg-white rounded-lg shadow-md p-12 text-center">
                     <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -305,16 +298,27 @@ export default function DashboardPage() {
 
             {/* Briefs Tab */}
             {activeTab === 'briefs' && (
-              <div className="bg-white rounded-lg shadow-md p-12 text-center">
-                <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h2 className="text-2xl font-semibold text-gray-700 mb-2">Document Briefs</h2>
-                <p className="text-gray-500 mb-6">
-                  Plan your documents with a structured wizard approach
-                </p>
-                <button onClick={() => navigate('/briefs')} className="btn-primary">
-                  View Document Briefs
-                </button>
-              </div>
+              <>
+                <div className="mb-6">
+                  <button
+                    onClick={() => navigate('/briefs')}
+                    className="btn-primary text-lg px-6 py-3 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Document Brief</span>
+                  </button>
+                </div>
+                <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                  <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h2 className="text-2xl font-semibold text-gray-700 mb-2">Document Briefs</h2>
+                  <p className="text-gray-500 mb-6">
+                    Plan your documents with a structured wizard approach
+                  </p>
+                  <button onClick={() => navigate('/briefs')} className="btn-primary">
+                    View Document Briefs
+                  </button>
+                </div>
+              </>
             )}
           </>
         )}

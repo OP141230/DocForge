@@ -278,6 +278,8 @@ async def generate_document(
     Phase 5 adds an optional body: ``{"research_session_id": "...",
     "citation_style": "apa", "use_research": true}``. Omitting the body keeps the
     exact Phase 3/4 behaviour, including knowledge-base-only generation.
+    
+    FIX #1: Now includes conversation history for better context continuity.
     """
     try:
         db = await get_database()
@@ -297,7 +299,29 @@ async def generate_document(
         if not brief.outline or len(brief.outline) == 0:
             raise HTTPException(status_code=400, detail="Cannot generate document: outline is empty")
         
-        # Convert brief to DocumentRequirements
+        # FIX #1: Get conversation history if brief is linked to a conversation
+        conversation_context = ""
+        if brief.conversation_id:
+            from app.repositories.message_repository import MessageRepository
+            msg_repo = MessageRepository(db)
+            messages, _ = await msg_repo.list_by_conversation(brief.conversation_id, limit=100, offset=0)
+            
+            # Build conversation context from messages
+            if messages:
+                conversation_context = "\n\n--- Previous Conversation Context ---\n"
+                for msg in messages:
+                    role_label = "User" if msg.role == "user" else "Assistant"
+                    conversation_context += f"{role_label}: {msg.content[:500]}...\n"  # Limit each message to 500 chars
+                conversation_context += "--- End of Context ---\n\n"
+        
+        # Convert brief to DocumentRequirements with conversation context
+        additional_instructions = brief.additional_instructions or ""
+        if conversation_context:
+            additional_instructions = (
+                f"{conversation_context}\n\n"
+                f"Continue based on the conversation above. {additional_instructions}"
+            )
+        
         requirements = DocumentRequirements(
             document_type=brief.document_type,
             topic=brief.topic,
@@ -306,7 +330,7 @@ async def generate_document(
             tone=brief.tone,
             language=brief.language,
             length=brief.desired_length or "medium",
-            additional_instructions=brief.additional_instructions,
+            additional_instructions=additional_instructions,
         )
         
         # Check if files are attached to the brief

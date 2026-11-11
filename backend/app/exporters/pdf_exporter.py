@@ -13,6 +13,8 @@ from reportlab.platypus import (
 )
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 try:
     from sympy import sympify, pretty
@@ -27,24 +29,35 @@ from .base import Exporter
 
 def parse_inline_latex(text: str) -> str:
     """
-    Parse and convert inline LaTeX expressions in text to Unicode.
-    Detects patterns like \(...\), $$...$$, $...$, \[...\], and \begin{...}...\end{...}
+    Parse and convert inline LaTeX expressions and standalone LaTeX to readable ASCII.
+    Handles both delimited math and standalone LaTeX commands.
+    Also cleans up broken Unicode symbols (■, □, etc.) from malformed LaTeX.
     
     Args:
-        text: Text containing inline LaTeX expressions
+        text: Text containing LaTeX expressions
         
     Returns:
-        Text with LaTeX converted to Unicode mathematical symbols
+        Text with LaTeX converted to readable ASCII notation
     """
     if not text:
         return text
     
     result = text
     
+    # FIRST: Remove broken Unicode placeholder symbols that indicate missing glyphs
+    # These appear when Unicode math symbols can't be rendered
+    # Replace with space to preserve word boundaries
+    broken_symbols = ['■', '□', '▪', '▫', '●', '○', '◆', '◇', '▄', '▀']
+    for symbol in broken_symbols:
+        result = result.replace(symbol, ' ')
+    
+    # Clean up multiple spaces left by removed symbols
+    result = re.sub(r'\s{2,}', ' ', result)
+    
     # Pattern for \(...\) inline math
     result = re.sub(
         r'\\\((.+?)\\\)',
-        lambda m: latex_to_unicode(m.group(1)),
+        lambda m: latex_to_ascii(m.group(1)),
         result,
         flags=re.DOTALL
     )
@@ -52,7 +65,7 @@ def parse_inline_latex(text: str) -> str:
     # Pattern for $$...$$ display math
     result = re.sub(
         r'\$\$(.+?)\$\$',
-        lambda m: latex_to_unicode(m.group(1)),
+        lambda m: latex_to_ascii(m.group(1)),
         result,
         flags=re.DOTALL
     )
@@ -60,14 +73,14 @@ def parse_inline_latex(text: str) -> str:
     # Pattern for $...$ inline math
     result = re.sub(
         r'\$([^\$]+?)\$',
-        lambda m: latex_to_unicode(m.group(1)),
+        lambda m: latex_to_ascii(m.group(1)),
         result
     )
     
     # Pattern for \[...\] display math
     result = re.sub(
         r'\\\[(.+?)\\\]',
-        lambda m: latex_to_unicode(m.group(1)),
+        lambda m: latex_to_ascii(m.group(1)),
         result,
         flags=re.DOTALL
     )
@@ -75,10 +88,71 @@ def parse_inline_latex(text: str) -> str:
     # Pattern for \begin{bmatrix}...\end{bmatrix} and similar environments
     result = re.sub(
         r'\\begin\{(bmatrix|pmatrix|matrix|equation|align|cases)\}(.+?)\\end\{\1\}',
-        lambda m: latex_to_unicode(m.group(2)),
+        lambda m: f"[{m.group(1).upper()}]: {latex_to_ascii(m.group(2))}",
         result,
         flags=re.DOTALL
     )
+    
+    # Also convert standalone LaTeX commands (without delimiters)
+    result = latex_to_ascii(result)
+    
+    return result
+
+
+def latex_to_ascii(latex_str: str) -> str:
+    """
+    Convert LaTeX to clean ASCII representation that ReportLab can render.
+    Uses caret notation for superscripts (x^2) and underscore for subscripts (x_i).
+    
+    Args:
+        latex_str: LaTeX equation string
+        
+    Returns:
+        ASCII representation
+    """
+    if not latex_str or not latex_str.strip():
+        return ""
+    
+    result = latex_str
+    
+    # Greek letters - use full names
+    greek_map = {
+        r'\alpha': 'alpha', r'\beta': 'beta', r'\gamma': 'gamma', r'\delta': 'delta',
+        r'\epsilon': 'epsilon', r'\zeta': 'zeta', r'\eta': 'eta', r'\theta': 'theta',
+        r'\lambda': 'lambda', r'\mu': 'mu', r'\nu': 'nu', r'\pi': 'pi', r'\rho': 'rho',
+        r'\sigma': 'sigma', r'\tau': 'tau', r'\phi': 'phi', r'\chi': 'chi', 
+        r'\psi': 'psi', r'\omega': 'omega',
+        r'\Lambda': 'LAMBDA', r'\Delta': 'DELTA', r'\Sigma': 'SIGMA', r'\Omega': 'OMEGA'
+    }
+    
+    for latex, name in greek_map.items():
+        result = result.replace(latex, name)
+    
+    # Math operators - use ASCII
+    op_map = {
+        r'\times': '*', r'\cdot': '*', r'\div': '/',
+        r'\leq': '<=', r'\geq': '>=', r'\neq': '!=',
+        r'\approx': '~=', r'\equiv': '===',
+        r'\sum': 'SUM', r'\prod': 'PROD', r'\int': 'INT',
+        r'\infty': 'infinity', r'\pm': '+/-',
+        r'\partial': 'd/d', r'\nabla': 'nabla',
+        r'\sqrt': 'sqrt', r'\in': 'in',
+        r'\rightarrow': '->', r'\leftarrow': '<-',
+        r'\Rightarrow': '=>', r'\Leftarrow': '<='
+    }
+    
+    for latex, ascii_op in op_map.items():
+        result = result.replace(latex, ascii_op)
+    
+    # Keep superscripts as ^{} notation (readable)
+    # Subscripts as _{} notation
+    # These are already readable in ASCII
+    
+    # Simplify fractions: \frac{a}{b} -> (a)/(b)
+    result = re.sub(r'\\frac\{([^}]+)\}\{([^}]+)\}', r'(\1)/(\2)', result)
+    
+    # Remove remaining backslashes from commands
+    result = re.sub(r'\\([a-zA-Z]+)', r'\1', result)
     
     return result
 

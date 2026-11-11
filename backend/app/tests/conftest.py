@@ -125,7 +125,11 @@ async def api_client(use_test_database, test_db, user):
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Clear cookies to ensure test isolation
+        client.cookies.clear()
         yield client
+        # Clean up after test
+        client.cookies.clear()
 
     app.dependency_overrides.clear()
 
@@ -134,25 +138,60 @@ async def api_client(use_test_database, test_db, user):
 async def api_client_factory(use_test_database, test_db):
     """Build a client authenticated as a specific user (for isolation tests)."""
     from main import app
+    from httpx import ASGITransport, AsyncClient
 
     clients = []
+    active_user = None
+
+    def set_active_user(user: User):
+        """Set the currently active user for auth."""
+        nonlocal active_user
+        active_user = user
+
+    async def _get_db():
+        return test_db
+
+    async def _get_current_user():
+        """Return the currently active user."""
+        return active_user
+
+    # Set up global overrides
+    app.dependency_overrides[get_database] = _get_db
+    app.dependency_overrides[get_current_user] = _get_current_user
+
+    class UserScopedClient:
+        """Wrapper that sets active user before each request."""
+        def __init__(self, client: AsyncClient, user: User):
+            self._client = client
+            self._user = user
+        
+        async def get(self, *args, **kwargs):
+            set_active_user(self._user)
+            return await self._client.get(*args, **kwargs)
+        
+        async def post(self, *args, **kwargs):
+            set_active_user(self._user)
+            return await self._client.post(*args, **kwargs)
+        
+        async def put(self, *args, **kwargs):
+            set_active_user(self._user)
+            return await self._client.put(*args, **kwargs)
+        
+        async def delete(self, *args, **kwargs):
+            set_active_user(self._user)
+            return await self._client.delete(*args, **kwargs)
 
     def _factory(current_user: User):
-        async def _get_db():
-            return test_db
-
-        async def _get_user():
-            return current_user
-
-        app.dependency_overrides[get_database] = _get_db
-        app.dependency_overrides[get_current_user] = _get_user
+        """Create client for specific user."""
         transport = ASGITransport(app=app)
         client = AsyncClient(transport=transport, base_url="http://test")
+        wrapped = UserScopedClient(client, current_user)
         clients.append(client)
-        return client
+        return wrapped
 
     yield _factory
 
+    # Cleanup
     for client in clients:
         await client.aclose()
     app.dependency_overrides.clear()

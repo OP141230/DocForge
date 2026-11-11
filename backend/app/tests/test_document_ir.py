@@ -37,7 +37,7 @@ def test_document_ir_creation():
     assert doc.title == "Test Document"
     assert len(doc.content) == 1
     assert doc.content[0].title == "Introduction"
-    assert doc.schema_version == "1.0.0"
+    assert doc.schema_version == "1.1.0"  # Phase 7 updated to v1.1.0
     assert doc.id is not None
 
 
